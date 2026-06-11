@@ -1,0 +1,44 @@
+{
+  "mode": "backfill",
+  "source_id": "structured:tickets:seed_batch_001",
+  "dry_run": false,
+  "batch_id": "homework01-backfill-ticket-001",
+  "start_cursor": "2026-04-17T00:00:00Z",
+  "end_cursor": "2026-04-17T23:59:59Z",
+  "checkpoint_snapshot": {
+    "source_id": "structured:tickets:seed_batch_001",
+    "last_processed_cursor": "2026-04-24T07:45:57.612276+00:00",
+    "last_success_batch_id": "homework01-ticket-001",
+    "last_run_id": "ticket-ingest::homework01-ticket-001",
+    "updated_at": "2026-06-10T07:49:20.620039+00:00"
+  },
+  "execution_plan": [
+    "Resolve source scope for structured:tickets:seed_batch_001.",
+    "Inspect the latest ingest checkpoint before taking recovery action.",
+    "Construct a historical cursor window and run the batch in dry-run first.",
+    "Backfill cursor window from 2026-04-17T00:00:00Z to 2026-04-17T23:59:59Z.",
+    "Write a Week03 recovery decision report before touching downstream storage.",
+    "Run ticket_ingest through the recovery entrypoint; non-dry-run execution uses the idempotent raw-event guard and checkpoint update."
+  ],
+  "warnings": [],
+  "recommended_action": "proceed_to_next_stage",
+  "status": "ok",
+  "execution_result": {
+    "total": 500,
+    "valid": 500,
+    "invalid": 0,
+    "processed": 500,
+    "inserted": 10,
+    "skipped": 490,
+    "errors": 0,
+    "bronze_inserted": 10,
+    "bronze_duplicates": 490,
+    "silver_upserted": 500,
+    "batch_id": "homework01-backfill-ticket-001",
+    "input": "data/canonization/tickets/tickets-seed-001.jsonl",
+    "dry_run": false,
+    "state_path": "/workspace/data/canonization/checkpoints/week03_ingest_state.json",
+    "checkpoints_written": 1
+  },
+  "generated_at": "2026-06-10T07:57:18.814622+00:00"
+}

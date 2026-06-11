@@ -1,0 +1,160 @@
+{
+  "report_version": "week03_seed_loader_smoke_report_v1",
+  "report_kind": "seed_loader_smoke",
+  "run_id": "seed-loader::batch-20260610-auto",
+  "batch_id": "batch-20260610-auto",
+  "generated_at": "2026-06-10T03:24:49.854957+00:00",
+  "dry_run": true,
+  "manifest_dir": "data/seed_manifests",
+  "manifest_paths": [],
+  "summary": {
+    "accepted_count": 10,
+    "warn_count": 1,
+    "quarantine_count": 1,
+    "reject_count": 0,
+    "rejected_manifests": 1
+  },
+  "status": "error",
+  "recommended_action": "rerun_after_fix",
+  "results": [
+    {
+      "manifest_id": "manifest-edge-gateway-pdf-20260331-001",
+      "modality": "document",
+      "total_assets": 3,
+      "accepted_count": 3,
+      "warn_count": 0,
+      "quarantine_count": 0,
+      "reject_count": 0,
+      "run_at": "2026-06-10T03:24:49.852575+00:00",
+      "errors": [],
+      "run_evidence": [
+        {
+          "source_id": "doc:edge:000000000001",
+          "contract_ref": "omni://contracts/data/doc_asset/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        },
+        {
+          "source_id": "doc:edge:000000000002",
+          "contract_ref": "omni://contracts/data/doc_asset/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        },
+        {
+          "source_id": "doc:edge:000000000003",
+          "contract_ref": "omni://contracts/data/doc_asset/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        }
+      ]
+    },
+    {
+      "manifest_id": "manifest-tickets-synthetic-20260331-001",
+      "modality": "structured",
+      "total_assets": 2,
+      "accepted_count": 2,
+      "warn_count": 0,
+      "quarantine_count": 0,
+      "reject_count": 0,
+      "run_at": "2026-06-10T03:24:49.852808+00:00",
+      "errors": [],
+      "run_evidence": [
+        {
+          "source_id": "structured:tickets:seed_batch_001",
+          "contract_ref": "omni://contracts/data/ticket/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        },
+        {
+          "source_id": "structured:tickets:msdialog_sample",
+          "contract_ref": "omni://contracts/data/ticket/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        }
+      ]
+    },
+    {
+      "manifest_id": "manifest-week02-practice-20260420-001",
+      "modality": "structured",
+      "total_assets": 3,
+      "accepted_count": 1,
+      "warn_count": 1,
+      "quarantine_count": 1,
+      "reject_count": 0,
+      "run_at": "2026-06-10T03:24:49.853245+00:00",
+      "errors": [],
+      "run_evidence": [
+        {
+          "source_id": "structured:tickets:practice_ok",
+          "contract_ref": "omni://contracts/data/ticket/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        },
+        {
+          "source_id": "structured:tickets:practice_warn",
+          "contract_ref": "omni://contracts/data/ticket/v1",
+          "gate_judgment": "warn",
+          "reasons": [
+            "metadata_status=partial",
+            "checksum_sha256 missing"
+          ]
+        },
+        {
+          "source_id": "structured:tickets:practice_quarantine",
+          "contract_ref": "omni://contracts/data/ticket/v1",
+          "gate_judgment": "quarantine",
+          "reasons": [
+            "pii_scan_status=not_run"
+          ]
+        }
+      ]
+    },
+    {
+      "manifest_id": "manifest-workspace-helpcenter-20260331-001",
+      "modality": "document",
+      "total_assets": 4,
+      "accepted_count": 4,
+      "warn_count": 0,
+      "quarantine_count": 0,
+      "reject_count": 0,
+      "run_at": "2026-06-10T03:24:49.854085+00:00",
+      "errors": [],
+      "run_evidence": [
+        {
+          "source_id": "doc:workspace:000000000001",
+          "contract_ref": "omni://contracts/data/doc_asset/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        },
+        {
+          "source_id": "doc:workspace:000000000002",
+          "contract_ref": "omni://contracts/data/doc_asset/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        },
+        {
+          "source_id": "doc:workspace:000000000003",
+          "contract_ref": "omni://contracts/data/doc_asset/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        },
+        {
+          "source_id": "doc:workspace:000000000004",
+          "contract_ref": "omni://contracts/data/doc_asset/v1",
+          "gate_judgment": "accept",
+          "reasons": []
+        }
+      ]
+    }
+  ],
+  "rejected_manifests": [
+    {
+      "manifest_id": "manifest-week07-multimodal-20260424-001",
+      "validation_errors": [
+        "asset_type 'image' is incompatible with contract_ref 'omni://contracts/data/doc_asset/v1'",
+        "asset_type 'audio' is incompatible with contract_ref 'omni://contracts/data/audio_asset/v1'",
+        "asset_type 'video' is incompatible with contract_ref 'omni://contracts/data/video_asset/v1'"
+      ]
+    }
+  ]
+}

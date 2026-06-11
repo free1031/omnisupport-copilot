@@ -50,6 +50,11 @@ Expected:
 ## 4. Dry Run Materialization
 
 ```bash
+# 生成结构化数据种子
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox python -m pipelines.ingestion.ticket_ingest --input data/canonization/tickets/tickets-seed-001.jsonl --batch-id week04-ticket-seed-001 --report-json reports/week03/ticket_ingest_week04_seed_report.json
+# 生成文档种子
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox python -m pipelines.ingestion.doc_ingest --manifest data/seed_manifests/manifest_workspace_helpcenter_v1.json --source-dir /workspace/tmp/week04-docs --batch-id lab-week03-doc-001 --report-json reports/week03/doc_ingest_lab_report.json
+
 docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox \
   python -m pipelines.lakehouse.materialize --all-core --dry-run
 ```

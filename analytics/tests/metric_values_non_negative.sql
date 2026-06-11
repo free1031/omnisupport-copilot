@@ -10,6 +10,8 @@ where metric_name in (
     'escalation_count',
     'avg_backlog_age_days',
     'avg_first_response_minutes',
-    'avg_handle_time_minutes'
+    'avg_handle_time_minutes',
+    'first_resolution_count',
+    'resolved_ticket_count'
 )
 and metric_value < 0

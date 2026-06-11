@@ -60,6 +60,7 @@ def test_week02_valid_fixture_records_pass_current_contracts(week02_samples: dic
     ("case_name", "expected_contract"),
     [
         ("ticket_missing_priority", "ticket"),
+        ("ticket_bad_enum", "ticket"),  # 无效的枚举值
         ("document_bad_fingerprint", "document"),
         ("audio_missing_pii_redacted", "audio"),
         ("video_bad_enum", "video"),

@@ -1,0 +1,38 @@
+{
+  "report_version": "week04_lakehouse_materialization_v1",
+  "generated_at": "2026-06-10T07:54:47.490487+00:00",
+  "data_release_id": "week04-dev-local",
+  "ingest_batch_id": "week04-smoke",
+  "dry_run": false,
+  "plan": false,
+  "tables": {
+    "bronze.raw_ticket_event": {
+      "source_rows": 490,
+      "write_mode": "deduped_full_refresh",
+      "action": "overwrite",
+      "snapshot_id": 7086915067579750811,
+      "location": "s3://omni-lakehouse/warehouse/bronze.db/raw_ticket_event"
+    },
+    "bronze.raw_doc_asset": {
+      "source_rows": 1,
+      "write_mode": "deduped_full_refresh",
+      "action": "overwrite",
+      "snapshot_id": 5066544360457693746,
+      "location": "s3://omni-lakehouse/warehouse/bronze.db/raw_doc_asset"
+    },
+    "silver.ticket_fact": {
+      "source_rows": 490,
+      "write_mode": "deterministic_full_refresh",
+      "action": "overwrite",
+      "snapshot_id": 3596329793523767330,
+      "location": "s3://omni-lakehouse/warehouse/silver.db/ticket_fact"
+    },
+    "silver.knowledge_doc": {
+      "source_rows": 1,
+      "write_mode": "deterministic_full_refresh",
+      "action": "overwrite",
+      "snapshot_id": 9147450600592142800,
+      "location": "s3://omni-lakehouse/warehouse/silver.db/knowledge_doc"
+    }
+  }
+}

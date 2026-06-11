@@ -115,6 +115,37 @@
         "owner": "support-ops"
       }
     },
+    "ticket_bad_enum": {
+      "contract": "ticket",
+      "record": {
+      "ticket_id": "TKT-20260420-000001",
+      "schema_version": "ticket_v1",
+      "source_id": "structured:tickets:practice_ok",
+      "ingest_batch_id": "batch-20260420-001",
+      "customer_id": "cust-001",
+      "org_id": "org-001",
+      "status": "done",
+      "priority": "p2_high",
+      "category": "configuration",
+      "product_line": "northstar_workspace",
+      "product_version": "2.4.1",
+      "subject": "Workspace SSO redirects to an empty callback page",
+      "description": "Customer sees a blank callback page after enabling SSO.",
+      "error_codes": ["NSW-4012"],
+      "asset_ids": ["asset-edge-001"],
+      "assignee_id": "agent-007",
+      "sla_tier": "enterprise",
+      "sla_due_at": "2026-04-20T12:00:00Z",
+      "created_at": "2026-04-20T08:00:00Z",
+      "updated_at": "2026-04-20T08:15:00Z",
+      "resolved_at": null,
+      "pii_level": "high",
+      "pii_redacted": true,
+      "quality_gate": "pass",
+      "owner": "support-ops",
+      "tags": ["sso", "callback", "week02"]
+      }
+    },
     "document_bad_fingerprint": {
       "contract": "document",
       "record": {

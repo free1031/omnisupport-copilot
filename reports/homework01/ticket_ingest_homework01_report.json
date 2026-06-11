@@ -1,9 +1,9 @@
 {
   "report_version": "week03_ticket_ingest_smoke_report_v1",
   "report_kind": "ticket_ingest_smoke",
-  "run_id": "ticket-ingest::homework01-backfill-ticket-001",
-  "generated_at": "2026-06-10T07:57:23.114418+00:00",
-  "batch_id": "homework01-backfill-ticket-001",
+  "run_id": "ticket-ingest::homework01-ticket-001",
+  "generated_at": "2026-06-11T14:02:58.084592+00:00",
+  "batch_id": "homework01-ticket-001",
   "input": "data/canonization/tickets/tickets-seed-001.jsonl",
   "dry_run": false,
   "summary": {
@@ -11,11 +11,11 @@
     "valid": 500,
     "invalid": 0,
     "processed": 500,
-    "inserted": 10,
-    "skipped": 490,
+    "inserted": 1,
+    "skipped": 499,
     "errors": 0,
-    "bronze_inserted": 10,
-    "bronze_duplicates": 490,
+    "bronze_inserted": 1,
+    "bronze_duplicates": 499,
     "silver_upserted": 500
   },
   "checkpoint": {
