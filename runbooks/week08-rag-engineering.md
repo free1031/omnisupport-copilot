@@ -14,6 +14,27 @@ This runbook validates the Student Core path:
 
 Week8 does not implement Week10 actions, Week11 full eval, Week12 tracing, Week13 GraphRAG, or Week14 release governance.
 
+## Code Architecture Map
+
+![Week08 RAG 服务化文件级代码架构图](../docs/assets/week08/rag-service-code-architecture.png)
+
+Read this map before running the commands below. It shows the Week08 file-level
+path:
+
+- Week07 evidence-ready chunks enter through `knowledge_doc`,
+  `knowledge_section`, and `evidence_anchor`.
+- `pipelines/indexing/` builds a versioned index and binds
+  `index_release_id`.
+- `pipelines/query/` explains Query Rewrite, HyDE, and Adaptive RAG as
+  deterministic classroom scaffolds.
+- `services/rag_api/app/retrieval.py` owns the runnable pgvector + FTS + RRF +
+  optional rerank path.
+- `services/rag_api/app/context_pruning.py`, `services/rag_api/app/prompts/`,
+  and `services/rag_api/app/generator.py` constrain generation to retrieved
+  evidence.
+- `services/rag_api/app/routers/rag.py`, `contracts/service/`, `audit.py`, and
+  `evals/week08/` close the API, audit, eval, and release loop.
+
 ## PPT Alignment Boundary
 
 The Week08 lesson deck uses several production labels. The runnable student
