@@ -5,6 +5,15 @@
   "data_release_id": "data-v0.1.0",
   "index_release_id": "index-v0.1.0",
   "prompt_release_id": "prompt-v0.1.0",
+  "skill_release_id": "skills-v0.1.0",
+  "skills": [
+    {
+      "name": "rag-contract-check",
+      "version": "0.1.0",
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "source": "skills/rag-contract-check"
+    }
+  ],
   "eval_run_id": "eval-run-20260331-001",
   "git_sha": "0000000000000000000000000000000000000000",
   "created_at": "2026-03-31T00:00:00Z",

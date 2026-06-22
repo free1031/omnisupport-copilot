@@ -37,6 +37,25 @@
       "type": "string",
       "description": "Prompt 模板版本标识"
     },
+    "skill_release_id": {
+      "type": ["string", "null"],
+      "description": "Week09 Skill Pack 版本标识。为空表示该 release 尚未绑定 Skill Pack。"
+    },
+    "skills": {
+      "type": "array",
+      "description": "Skill Pack 依赖锁定列表，用于把数据、索引、Prompt、Skill、评测绑定为可回滚单元。",
+      "items": {
+        "type": "object",
+        "required": ["name", "version", "digest"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+          "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+          "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "source": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
     "eval_run_id": {
       "type": "string",
       "description": "关联的评测运行 ID"

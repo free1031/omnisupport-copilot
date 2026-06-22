@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12",
+  "$id": "omni://contracts/skills/skill_pack/v1",
+  "title": "SkillPack",
+  "description": "OmniSupport Copilot Week09 Agent Skill Pack contract. A skill is a portable folder with SKILL.md plus optional scripts, references, and assets.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["name", "description", "version"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Portable skill identifier. Folder name should match."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20,
+      "description": "Discovery text used by agents for progressive loading."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "SemVer version for governance and release manifests."
+    },
+    "owner": {
+      "type": "string",
+      "default": "data-platform"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "deprecated"],
+      "default": "active"
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+      "default": []
+    },
+    "not_for": {
+      "type": "array",
+      "description": "Negative routing hints that reduce accidental activation.",
+      "items": {"type": "string"},
+      "default": []
+    },
+    "inputs": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    },
+    "outputs": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    },
+    "requires": {
+      "type": "array",
+      "description": "Other skill names or repo capabilities required by this skill.",
+      "items": {"type": "string"},
+      "default": []
+    },
+    "compatible_agents": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": ["codex", "claude-code", "mcp-compatible-agent"]
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "Expected output artifact paths or path patterns.",
+      "items": {"type": "string"},
+      "default": []
+    },
+    "evals": {
+      "type": "array",
+      "description": "Golden checks that should run before promotion.",
+      "items": {"type": "string"},
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}

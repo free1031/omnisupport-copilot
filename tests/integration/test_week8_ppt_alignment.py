@@ -9,7 +9,18 @@ sys.path.insert(0, str(PROJECT_ROOT / "services" / "rag_api"))
 os.environ.setdefault("OTEL_ENABLED", "false")
 
 
+def _prefer_rag_api_app_package():
+    for module_name in list(sys.modules):
+        if module_name == "app" or module_name.startswith("app."):
+            sys.modules.pop(module_name, None)
+    rag_api_path = str(PROJECT_ROOT / "services" / "rag_api")
+    if rag_api_path in sys.path:
+        sys.path.remove(rag_api_path)
+    sys.path.insert(0, rag_api_path)
+
+
 def test_ppt_hybrid_path_reuses_service_rrf():
+    _prefer_rag_api_app_package()
     from pipelines.retrieve.hybrid import RetrievalResult, reciprocal_rank_fusion
 
     def result(chunk_id: str) -> RetrievalResult:
@@ -51,6 +62,7 @@ def test_query_rewrite_preserves_error_codes_and_hyde_plan():
 
 
 def test_context_pruning_keeps_top_chunks_with_budget():
+    _prefer_rag_api_app_package()
     from app.context_pruning import prune_contexts
 
     class Chunk:
@@ -72,6 +84,7 @@ def test_context_pruning_keeps_top_chunks_with_budget():
 
 
 def test_prompt_rendering_uses_file_backed_templates():
+    _prefer_rag_api_app_package()
     from app.generator import render_evidence_prompt
 
     class Chunk:
@@ -85,4 +98,3 @@ def test_prompt_rendering_uses_file_backed_templates():
     assert "retrieved evidence" in system_prompt.lower()
     assert "Retrieved evidence" in user_prompt
     assert "Guide > Recovery" in user_prompt
-

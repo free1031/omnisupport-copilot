@@ -137,6 +137,7 @@ services:
       OTEL_SERVICE_NAME: tool_api
       RELEASE_ID: ${RELEASE_ID:-dev-local}
       METRIC_REGISTRY_PATH: /workspace/analytics/metric_registry_v1.yml
+      SKILL_REGISTRY_PATH: /workspace/skills
     ports:
       - "8001:8001"
     depends_on:
@@ -148,6 +149,7 @@ services:
       - ../services/tool_api:/app
       - ../analytics:/workspace/analytics:ro
       - ../contracts:/workspace/contracts:ro
+      - ../skills:/workspace/skills:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 15s

@@ -1,0 +1,12 @@
+{
+  "answer": "",
+  "citations": [],
+  "evidence_ids": [],
+  "confidence": 0,
+  "abstain_reason": "no_retrieval_results",
+  "release_id": "dev-local",
+  "data_release_id": null,
+  "index_release_id": "index-dev",
+  "prompt_release_id": "prompt-dev",
+  "trace_id": "trace-example"
+}
