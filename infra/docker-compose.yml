@@ -217,7 +217,7 @@ services:
       WEEK07_CHUNK_STRATEGY_VERSION: ${WEEK07_CHUNK_STRATEGY_VERSION:-section_aware_v1}
       WEEK07_PARSE_DRY_RUN: ${WEEK07_PARSE_DRY_RUN:-true}
     ports:
-      - "3000:3000"
+      - "49152:3000"
     depends_on:
       postgres:
         condition: service_healthy

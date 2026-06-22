@@ -1,0 +1,15 @@
+{
+  "partition_key": "2026-04-17",
+  "window_start": "2026-04-17T00:00:00+00:00",
+  "window_end": "2026-04-17T23:59:59.999999+00:00",
+  "upstream_manifest_id": "manifest-tickets-synthetic-20260331-001",
+  "expected_input_count": 4,
+  "current_output_count": 0,
+  "gap_reason": "output_lag",
+  "proposed_action": "dry_run_ticket_ingest_for_partition",
+  "idempotency_guard": "ticket_id primary key plus raw source_fingerprint conflict guard",
+  "downstream_impact": "Structured core only; Week04/Week05 remain observation-only in Week06",
+  "operator": "student-devbox",
+  "timestamp": "2026-06-15T12:29:15.517678+00:00",
+  "mode": "dry-run"
+}
