@@ -9,6 +9,7 @@ ALTER TABLE knowledge_doc
 
 ALTER TABLE knowledge_section
     ADD COLUMN IF NOT EXISTS chunk_strategy_version TEXT,
+    ADD COLUMN IF NOT EXISTS embedding_dim INT,
     ADD COLUMN IF NOT EXISTS indexed_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS index_manifest (

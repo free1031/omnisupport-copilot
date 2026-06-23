@@ -19,6 +19,12 @@ from typing import Sequence
 logger = logging.getLogger(__name__)
 
 
+def _format_pgvector(vector: Sequence[float]) -> str:
+    """Serialize a Python vector into pgvector's text input format."""
+
+    return "[" + ",".join(f"{float(value):.9g}" for value in vector) + "]"
+
+
 # ── 结果结构 ──────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -143,7 +149,7 @@ async def vector_search(
 ) -> list[RetrievalResult]:
     """ANN 余弦相似度检索（pgvector）"""
     try:
-        query_vec = _query_embedder.embed(query)
+        query_vec = _format_pgvector(_query_embedder.embed(query))
     except Exception as e:
         logger.warning(f"Embedding failed, skipping vector search: {e}")
         return []
@@ -441,4 +447,3 @@ async def hybrid_retrieve(
         results = [r for r in results if r.final_score >= min_score]
 
     return results
-

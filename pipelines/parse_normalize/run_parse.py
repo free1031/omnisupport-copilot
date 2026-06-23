@@ -32,12 +32,45 @@ def _jsonb(value: object) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-async def _ensure_week07_ppt_columns(conn) -> None:
-    """Keep existing local Postgres volumes compatible with new Week07 fields."""
+async def _ensure_week07_parse_schema(conn) -> None:
+    """Keep existing local Postgres volumes compatible with Week07 parse fields.
+
+    PostgreSQL only runs files mounted under docker-entrypoint-initdb.d when the
+    data directory is created for the first time. Many students keep the same
+    local volume across weeks, so Week07's additive migrations might not have
+    been applied even though the source tree contains them. This guard mirrors
+    the Week07 additive DDL before the real write path.
+    """
+
+    await conn.execute("ALTER TYPE asset_modality ADD VALUE IF NOT EXISTS 'image'")
+
+    await conn.execute(
+        """
+        ALTER TABLE knowledge_doc
+            ADD COLUMN IF NOT EXISTS parse_strategy_version TEXT,
+            ADD COLUMN IF NOT EXISTS parser_backend TEXT,
+            ADD COLUMN IF NOT EXISTS parser_capability JSONB DEFAULT '{}'::jsonb,
+            ADD COLUMN IF NOT EXISTS source_url_or_path TEXT,
+            ADD COLUMN IF NOT EXISTS parse_run_id TEXT,
+            ADD COLUMN IF NOT EXISTS parsed_at TIMESTAMPTZ
+        """
+    )
 
     await conn.execute(
         """
         ALTER TABLE knowledge_section
+            ADD COLUMN IF NOT EXISTS asset_type TEXT,
+            ADD COLUMN IF NOT EXISTS source_fingerprint TEXT,
+            ADD COLUMN IF NOT EXISTS chunk_strategy_version TEXT,
+            ADD COLUMN IF NOT EXISTS parse_strategy_version TEXT,
+            ADD COLUMN IF NOT EXISTS parser_backend TEXT,
+            ADD COLUMN IF NOT EXISTS parser_capability JSONB DEFAULT '{}'::jsonb,
+            ADD COLUMN IF NOT EXISTS bbox_missing_reason TEXT,
+            ADD COLUMN IF NOT EXISTS evidence_anchor_ids TEXT[] DEFAULT ARRAY[]::TEXT[],
+            ADD COLUMN IF NOT EXISTS anchor_count INT DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS quality_status TEXT DEFAULT 'warn',
+            ADD COLUMN IF NOT EXISTS allowed_for_indexing BOOLEAN DEFAULT FALSE,
+            ADD COLUMN IF NOT EXISTS reason_codes TEXT[] DEFAULT ARRAY[]::TEXT[],
             ADD COLUMN IF NOT EXISTS span_start INT,
             ADD COLUMN IF NOT EXISTS span_end INT,
             ADD COLUMN IF NOT EXISTS heading_path JSONB DEFAULT '[]'::jsonb,
@@ -47,12 +80,93 @@ async def _ensure_week07_ppt_columns(conn) -> None:
     await conn.execute(
         """
         ALTER TABLE evidence_anchor
+            ADD COLUMN IF NOT EXISTS section_id TEXT,
+            ADD COLUMN IF NOT EXISTS doc_id TEXT,
+            ADD COLUMN IF NOT EXISTS source_fingerprint TEXT,
+            ADD COLUMN IF NOT EXISTS asset_type TEXT,
+            ADD COLUMN IF NOT EXISTS anchor_type TEXT DEFAULT 'section',
+            ADD COLUMN IF NOT EXISTS source_url_or_path TEXT,
+            ADD COLUMN IF NOT EXISTS bbox TEXT,
+            ADD COLUMN IF NOT EXISTS bbox_missing_reason TEXT,
+            ADD COLUMN IF NOT EXISTS parser_backend TEXT,
+            ADD COLUMN IF NOT EXISTS parser_capability JSONB DEFAULT '{}'::jsonb,
+            ADD COLUMN IF NOT EXISTS data_release_id TEXT,
+            ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb,
             ADD COLUMN IF NOT EXISTS span_start INT,
             ADD COLUMN IF NOT EXISTS span_end INT,
             ADD COLUMN IF NOT EXISTS heading_path JSONB DEFAULT '[]'::jsonb,
             ADD COLUMN IF NOT EXISTS retrieval_method TEXT,
             ADD COLUMN IF NOT EXISTS rerank_score DOUBLE PRECISION,
             ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION
+        """
+    )
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS document_parse_run (
+            parse_run_id           TEXT PRIMARY KEY,
+            status                 TEXT NOT NULL,
+            manifest_id            TEXT,
+            batch_id               TEXT,
+            parser                 TEXT NOT NULL,
+            chunk_strategy_version TEXT NOT NULL,
+            parse_strategy_version TEXT NOT NULL,
+            data_release_id        TEXT NOT NULL,
+            started_at             TIMESTAMPTZ NOT NULL,
+            finished_at            TIMESTAMPTZ NOT NULL,
+            source_count           INT DEFAULT 0,
+            section_count          INT DEFAULT 0,
+            chunk_count            INT DEFAULT 0,
+            anchor_count           INT DEFAULT 0,
+            quality_status         TEXT DEFAULT 'warn',
+            week8_ready            BOOLEAN DEFAULT FALSE,
+            warnings               JSONB DEFAULT '[]'::jsonb,
+            errors                 JSONB DEFAULT '[]'::jsonb,
+            artifacts              JSONB DEFAULT '{}'::jsonb,
+            created_at             TIMESTAMPTZ DEFAULT NOW()
+        )
+        """
+    )
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chunk_quality_sample (
+            sample_id      TEXT PRIMARY KEY,
+            chunk_id       TEXT,
+            section_id     TEXT,
+            status         TEXT NOT NULL,
+            reason_codes   TEXT[] DEFAULT ARRAY[]::TEXT[],
+            checks         JSONB DEFAULT '{}'::jsonb,
+            created_at     TIMESTAMPTZ DEFAULT NOW()
+        )
+        """
+    )
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_week07_ksection_fingerprint
+            ON knowledge_section (source_fingerprint)
+        """
+    )
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_week07_ksection_quality
+            ON knowledge_section (quality_status, allowed_for_indexing)
+        """
+    )
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_week07_anchor_source
+            ON evidence_anchor (source_id, source_fingerprint)
+        """
+    )
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_week07_parse_run_release
+            ON document_parse_run (data_release_id, quality_status)
+        """
+    )
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_week07_anchor_doc_span
+            ON evidence_anchor (doc_id, span_start, span_end)
         """
     )
 
@@ -66,7 +180,7 @@ async def _persist_to_db(
     parse_run: ParseRunReport,
     quality_samples: list[dict],
 ) -> None:
-    from pipelines.ingestion.db import acquire
+    from pipelines.ingestion.db import acquire, close_pool
 
     parser_by_doc: dict[str, str] = {}
     capability_by_doc: dict[str, dict] = {}
@@ -74,239 +188,242 @@ async def _persist_to_db(
         parser_by_doc.setdefault(section["doc_id"], section["parser_backend"])
         capability_by_doc.setdefault(section["doc_id"], section.get("parser_capability", {}))
 
-    async with acquire() as conn:
-        await _ensure_week07_ppt_columns(conn)
-        async with conn.transaction():
-            for document in documents:
-                product_line = document.product_line
-                if product_line == "unknown":
-                    product_line = None
-                await conn.execute(
-                    """
-                    INSERT INTO raw_doc_asset (
-                        source_id, asset_type, raw_object_path, manifest_id, ingest_batch_id,
-                        license_tag, product_line, doc_version, source_fingerprint, source_url,
-                        pii_level, quality_gate
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'none',$11)
-                    ON CONFLICT (source_id) DO UPDATE SET
-                        source_fingerprint = EXCLUDED.source_fingerprint,
-                        source_url = EXCLUDED.source_url,
-                        quality_gate = EXCLUDED.quality_gate
-                    """,
-                    document.source_id,
-                    document.asset_type,
-                    document.source_url_or_path,
-                    document.manifest_id,
-                    document.batch_id,
-                    document.license_tag,
-                    product_line,
-                    document.doc_version,
-                    document.source_fingerprint,
-                    document.source_url_or_path,
-                    parse_run.quality_status,
-                )
-                await conn.execute(
-                    """
-                    INSERT INTO knowledge_doc (
-                        doc_id, source_id, asset_type, product_line, doc_version, title,
-                        source_url, source_fingerprint, license_tag, pii_level, quality_gate,
-                        data_release_id, parse_strategy_version, parser_backend,
-                        parser_capability, source_url_or_path, parse_run_id, parsed_at
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'none',$10,$11,$12,$13,$14::jsonb,$15,$16,NOW())
-                    ON CONFLICT (doc_id) DO UPDATE SET
-                        source_fingerprint = EXCLUDED.source_fingerprint,
-                        data_release_id = EXCLUDED.data_release_id,
-                        parse_strategy_version = EXCLUDED.parse_strategy_version,
-                        parser_backend = EXCLUDED.parser_backend,
-                        parser_capability = EXCLUDED.parser_capability,
-                        parse_run_id = EXCLUDED.parse_run_id,
-                        parsed_at = NOW()
-                    """,
-                    document.doc_id,
-                    document.source_id,
-                    document.asset_type,
-                    product_line,
-                    document.doc_version,
-                    document.source_id,
-                    document.source_url_or_path,
-                    document.source_fingerprint,
-                    document.license_tag,
-                    parse_run.quality_status,
-                    parse_run.data_release_id,
-                    parse_run.parse_strategy_version,
-                    parser_by_doc.get(document.doc_id, parse_run.parser),
-                    _jsonb(capability_by_doc.get(document.doc_id, {})),
-                    document.source_url_or_path,
-                    parse_run.parse_run_id,
-                )
+    try:
+        async with acquire() as conn:
+            await _ensure_week07_parse_schema(conn)
+            async with conn.transaction():
+                for document in documents:
+                    product_line = document.product_line
+                    if product_line == "unknown":
+                        product_line = None
+                    await conn.execute(
+                        """
+                        INSERT INTO raw_doc_asset (
+                            source_id, asset_type, raw_object_path, manifest_id, ingest_batch_id,
+                            license_tag, product_line, doc_version, source_fingerprint, source_url,
+                            pii_level, quality_gate
+                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'none',$11)
+                        ON CONFLICT (source_id) DO UPDATE SET
+                            source_fingerprint = EXCLUDED.source_fingerprint,
+                            source_url = EXCLUDED.source_url,
+                            quality_gate = EXCLUDED.quality_gate
+                        """,
+                        document.source_id,
+                        document.asset_type,
+                        document.source_url_or_path,
+                        document.manifest_id,
+                        document.batch_id,
+                        document.license_tag,
+                        product_line,
+                        document.doc_version,
+                        document.source_fingerprint,
+                        document.source_url_or_path,
+                        parse_run.quality_status,
+                    )
+                    await conn.execute(
+                        """
+                        INSERT INTO knowledge_doc (
+                            doc_id, source_id, asset_type, product_line, doc_version, title,
+                            source_url, source_fingerprint, license_tag, pii_level, quality_gate,
+                            data_release_id, parse_strategy_version, parser_backend,
+                            parser_capability, source_url_or_path, parse_run_id, parsed_at
+                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'none',$10,$11,$12,$13,$14::jsonb,$15,$16,NOW())
+                        ON CONFLICT (doc_id) DO UPDATE SET
+                            source_fingerprint = EXCLUDED.source_fingerprint,
+                            data_release_id = EXCLUDED.data_release_id,
+                            parse_strategy_version = EXCLUDED.parse_strategy_version,
+                            parser_backend = EXCLUDED.parser_backend,
+                            parser_capability = EXCLUDED.parser_capability,
+                            parse_run_id = EXCLUDED.parse_run_id,
+                            parsed_at = NOW()
+                        """,
+                        document.doc_id,
+                        document.source_id,
+                        document.asset_type,
+                        product_line,
+                        document.doc_version,
+                        document.source_id,
+                        document.source_url_or_path,
+                        document.source_fingerprint,
+                        document.license_tag,
+                        parse_run.quality_status,
+                        parse_run.data_release_id,
+                        parse_run.parse_strategy_version,
+                        parser_by_doc.get(document.doc_id, parse_run.parser),
+                        _jsonb(capability_by_doc.get(document.doc_id, {})),
+                        document.source_url_or_path,
+                        parse_run.parse_run_id,
+                    )
 
-            for chunk in chunks:
+                for chunk in chunks:
+                    await conn.execute(
+                        """
+                        INSERT INTO knowledge_section (
+                            section_id, doc_id, source_id, section_path, section_type, content,
+                            asset_type, page_no, bbox, chunk_index, data_release_id, chunk_strategy_version,
+                            source_fingerprint, parse_strategy_version, parser_backend,
+                            parser_capability, bbox_missing_reason, evidence_anchor_ids,
+                            anchor_count, quality_status, allowed_for_indexing, reason_codes,
+                            span_start, span_end, heading_path, context_prefix
+                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb,$26)
+                        ON CONFLICT (section_id) DO UPDATE SET
+                            content = EXCLUDED.content,
+                            asset_type = EXCLUDED.asset_type,
+                            data_release_id = EXCLUDED.data_release_id,
+                            chunk_strategy_version = EXCLUDED.chunk_strategy_version,
+                            source_fingerprint = EXCLUDED.source_fingerprint,
+                            parser_backend = EXCLUDED.parser_backend,
+                            parser_capability = EXCLUDED.parser_capability,
+                            evidence_anchor_ids = EXCLUDED.evidence_anchor_ids,
+                            anchor_count = EXCLUDED.anchor_count,
+                            quality_status = EXCLUDED.quality_status,
+                            allowed_for_indexing = EXCLUDED.allowed_for_indexing,
+                            span_start = EXCLUDED.span_start,
+                            span_end = EXCLUDED.span_end,
+                            heading_path = EXCLUDED.heading_path,
+                            context_prefix = EXCLUDED.context_prefix
+                        """,
+                        chunk["chunk_id"],
+                        chunk["doc_id"],
+                        chunk["source_id"],
+                        chunk.get("section_path"),
+                        chunk.get("section_type"),
+                        chunk["content"],
+                        chunk["asset_type"],
+                        chunk.get("page_no"),
+                        None if chunk.get("bbox") is None else str(chunk.get("bbox")),
+                        chunk["chunk_index"],
+                        chunk["data_release_id"],
+                        chunk["chunk_strategy_version"],
+                        chunk["source_fingerprint"],
+                        chunk["parse_strategy_version"],
+                        chunk["parser_backend"],
+                        _jsonb(chunk["parser_capability"]),
+                        None,
+                        chunk["evidence_anchor_ids"],
+                        chunk["anchor_count"],
+                        chunk["quality_status"],
+                        chunk["allowed_for_indexing"],
+                        chunk["reason_codes"],
+                        chunk.get("span_start"),
+                        chunk.get("span_end"),
+                        _jsonb(chunk.get("heading_path", [])),
+                        chunk.get("context_prefix"),
+                    )
+
+                for anchor in anchors:
+                    modality = anchor["asset_type"]
+                    if modality in {"pdf", "html", "faq", "release_notes", "api_doc", "community_post", "other"}:
+                        modality = "document"
+                    await conn.execute(
+                        """
+                        INSERT INTO evidence_anchor (
+                            anchor_id, chunk_id, section_id, doc_id, source_id, source_fingerprint,
+                            asset_type, anchor_type, source_url, source_url_or_path, section_path,
+                            doc_version, page_no, bbox, bbox_missing_reason, parser_backend,
+                            parser_capability, data_release_id, modality, start_ts, end_ts, metadata,
+                            span_start, span_end, heading_path, retrieval_method, rerank_score, confidence
+                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb,$18,$19,$20,$21,$22::jsonb,$23,$24,$25::jsonb,$26,$27,$28)
+                        ON CONFLICT (anchor_id) DO UPDATE SET
+                            source_fingerprint = EXCLUDED.source_fingerprint,
+                            source_url_or_path = EXCLUDED.source_url_or_path,
+                            parser_capability = EXCLUDED.parser_capability,
+                            data_release_id = EXCLUDED.data_release_id,
+                            metadata = EXCLUDED.metadata,
+                            span_start = EXCLUDED.span_start,
+                            span_end = EXCLUDED.span_end,
+                            heading_path = EXCLUDED.heading_path,
+                            retrieval_method = EXCLUDED.retrieval_method,
+                            rerank_score = EXCLUDED.rerank_score,
+                            confidence = EXCLUDED.confidence
+                        """,
+                        anchor["anchor_id"],
+                        anchor["chunk_id"],
+                        anchor["section_id"],
+                        anchor["doc_id"],
+                        anchor["source_id"],
+                        anchor["source_fingerprint"],
+                        anchor["asset_type"],
+                        anchor["anchor_type"],
+                        anchor["source_url_or_path"],
+                        anchor["source_url_or_path"],
+                        anchor["section_path"],
+                        anchor["doc_version"],
+                        anchor["page_no"],
+                        None if anchor.get("bbox") is None else str(anchor.get("bbox")),
+                        anchor.get("bbox_missing_reason"),
+                        anchor["parser_backend"],
+                        _jsonb(anchor.get("parser_capability", {})),
+                        anchor["data_release_id"],
+                        modality,
+                        anchor.get("start_ts"),
+                        anchor.get("end_ts"),
+                        _jsonb(anchor.get("metadata", {})),
+                        anchor.get("span_start"),
+                        anchor.get("span_end"),
+                        _jsonb(anchor.get("heading_path", [])),
+                        anchor.get("retrieval_method"),
+                        anchor.get("rerank_score"),
+                        anchor.get("confidence"),
+                    )
+
                 await conn.execute(
                     """
-                    INSERT INTO knowledge_section (
-                        section_id, doc_id, source_id, section_path, section_type, content,
-                        asset_type, page_no, bbox, chunk_index, data_release_id, chunk_strategy_version,
-                        source_fingerprint, parse_strategy_version, parser_backend,
-                        parser_capability, bbox_missing_reason, evidence_anchor_ids,
-                        anchor_count, quality_status, allowed_for_indexing, reason_codes,
-                        span_start, span_end, heading_path, context_prefix
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb,$26)
-                    ON CONFLICT (section_id) DO UPDATE SET
-                        content = EXCLUDED.content,
-                        asset_type = EXCLUDED.asset_type,
-                        data_release_id = EXCLUDED.data_release_id,
-                        chunk_strategy_version = EXCLUDED.chunk_strategy_version,
-                        source_fingerprint = EXCLUDED.source_fingerprint,
-                        parser_backend = EXCLUDED.parser_backend,
-                        parser_capability = EXCLUDED.parser_capability,
-                        evidence_anchor_ids = EXCLUDED.evidence_anchor_ids,
-                        anchor_count = EXCLUDED.anchor_count,
-                        quality_status = EXCLUDED.quality_status,
-                        allowed_for_indexing = EXCLUDED.allowed_for_indexing,
-                        span_start = EXCLUDED.span_start,
-                        span_end = EXCLUDED.span_end,
-                        heading_path = EXCLUDED.heading_path,
-                        context_prefix = EXCLUDED.context_prefix
-                    """,
-                    chunk["chunk_id"],
-                    chunk["doc_id"],
-                    chunk["source_id"],
-                    chunk.get("section_path"),
-                    chunk.get("section_type"),
-                    chunk["content"],
-                    chunk["asset_type"],
-                    chunk.get("page_no"),
-                    None if chunk.get("bbox") is None else str(chunk.get("bbox")),
-                    chunk["chunk_index"],
-                    chunk["data_release_id"],
-                    chunk["chunk_strategy_version"],
-                    chunk["source_fingerprint"],
-                    chunk["parse_strategy_version"],
-                    chunk["parser_backend"],
-                    _jsonb(chunk["parser_capability"]),
-                    None,
-                    chunk["evidence_anchor_ids"],
-                    chunk["anchor_count"],
-                    chunk["quality_status"],
-                    chunk["allowed_for_indexing"],
-                    chunk["reason_codes"],
-                    chunk.get("span_start"),
-                    chunk.get("span_end"),
-                    _jsonb(chunk.get("heading_path", [])),
-                    chunk.get("context_prefix"),
-                )
-
-            for anchor in anchors:
-                modality = anchor["asset_type"]
-                if modality in {"pdf", "html", "faq", "release_notes", "api_doc", "community_post", "other"}:
-                    modality = "document"
-                await conn.execute(
-                    """
-                    INSERT INTO evidence_anchor (
-                        anchor_id, chunk_id, section_id, doc_id, source_id, source_fingerprint,
-                        asset_type, anchor_type, source_url, source_url_or_path, section_path,
-                        doc_version, page_no, bbox, bbox_missing_reason, parser_backend,
-                        parser_capability, data_release_id, modality, start_ts, end_ts, metadata,
-                        span_start, span_end, heading_path, retrieval_method, rerank_score, confidence
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb,$18,$19,$20,$21,$22::jsonb,$23,$24,$25::jsonb,$26,$27,$28)
-                    ON CONFLICT (anchor_id) DO UPDATE SET
-                        source_fingerprint = EXCLUDED.source_fingerprint,
-                        source_url_or_path = EXCLUDED.source_url_or_path,
-                        parser_capability = EXCLUDED.parser_capability,
-                        data_release_id = EXCLUDED.data_release_id,
-                        metadata = EXCLUDED.metadata,
-                        span_start = EXCLUDED.span_start,
-                        span_end = EXCLUDED.span_end,
-                        heading_path = EXCLUDED.heading_path,
-                        retrieval_method = EXCLUDED.retrieval_method,
-                        rerank_score = EXCLUDED.rerank_score,
-                        confidence = EXCLUDED.confidence
-                    """,
-                    anchor["anchor_id"],
-                    anchor["chunk_id"],
-                    anchor["section_id"],
-                    anchor["doc_id"],
-                    anchor["source_id"],
-                    anchor["source_fingerprint"],
-                    anchor["asset_type"],
-                    anchor["anchor_type"],
-                    anchor["source_url_or_path"],
-                    anchor["source_url_or_path"],
-                    anchor["section_path"],
-                    anchor["doc_version"],
-                    anchor["page_no"],
-                    None if anchor.get("bbox") is None else str(anchor.get("bbox")),
-                    anchor.get("bbox_missing_reason"),
-                    anchor["parser_backend"],
-                    _jsonb(anchor.get("parser_capability", {})),
-                    anchor["data_release_id"],
-                    modality,
-                    anchor.get("start_ts"),
-                    anchor.get("end_ts"),
-                    _jsonb(anchor.get("metadata", {})),
-                    anchor.get("span_start"),
-                    anchor.get("span_end"),
-                    _jsonb(anchor.get("heading_path", [])),
-                    anchor.get("retrieval_method"),
-                    anchor.get("rerank_score"),
-                    anchor.get("confidence"),
-                )
-
-            await conn.execute(
-                """
-                INSERT INTO document_parse_run (
-                    parse_run_id, status, manifest_id, batch_id, parser, chunk_strategy_version,
-                    parse_strategy_version, data_release_id, started_at, finished_at,
-                    source_count, section_count, chunk_count, anchor_count, quality_status,
-                    week8_ready, warnings, errors, artifacts
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::text::timestamptz,$10::text::timestamptz,$11,$12,$13,$14,$15,$16,$17::jsonb,$18::jsonb,$19::jsonb)
-                ON CONFLICT (parse_run_id) DO UPDATE SET
-                    status = EXCLUDED.status,
-                    quality_status = EXCLUDED.quality_status,
-                    week8_ready = EXCLUDED.week8_ready,
-                    warnings = EXCLUDED.warnings,
-                    errors = EXCLUDED.errors,
-                    artifacts = EXCLUDED.artifacts
-                """,
-                parse_run.parse_run_id,
-                parse_run.status,
-                parse_run.manifest_id,
-                parse_run.batch_id,
-                parse_run.parser,
-                parse_run.chunk_strategy_version,
-                parse_run.parse_strategy_version,
-                parse_run.data_release_id,
-                parse_run.started_at,
-                parse_run.finished_at,
-                parse_run.source_count,
-                parse_run.section_count,
-                parse_run.chunk_count,
-                parse_run.anchor_count,
-                parse_run.quality_status,
-                parse_run.week8_ready,
-                _jsonb(parse_run.warnings),
-                _jsonb(parse_run.errors),
-                _jsonb(parse_run.artifacts),
-            )
-
-            for sample in quality_samples:
-                await conn.execute(
-                    """
-                    INSERT INTO chunk_quality_sample (
-                        sample_id, chunk_id, section_id, status, reason_codes, checks
-                    ) VALUES ($1,$2,$3,$4,$5,$6::jsonb)
-                    ON CONFLICT (sample_id) DO UPDATE SET
+                    INSERT INTO document_parse_run (
+                        parse_run_id, status, manifest_id, batch_id, parser, chunk_strategy_version,
+                        parse_strategy_version, data_release_id, started_at, finished_at,
+                        source_count, section_count, chunk_count, anchor_count, quality_status,
+                        week8_ready, warnings, errors, artifacts
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::text::timestamptz,$10::text::timestamptz,$11,$12,$13,$14,$15,$16,$17::jsonb,$18::jsonb,$19::jsonb)
+                    ON CONFLICT (parse_run_id) DO UPDATE SET
                         status = EXCLUDED.status,
-                        reason_codes = EXCLUDED.reason_codes,
-                        checks = EXCLUDED.checks
+                        quality_status = EXCLUDED.quality_status,
+                        week8_ready = EXCLUDED.week8_ready,
+                        warnings = EXCLUDED.warnings,
+                        errors = EXCLUDED.errors,
+                        artifacts = EXCLUDED.artifacts
                     """,
-                    sample["sample_id"],
-                    sample["chunk_id"],
-                    sample["section_id"],
-                    sample["status"],
-                    sample["reason_codes"],
-                    _jsonb(sample["checks"]),
+                    parse_run.parse_run_id,
+                    parse_run.status,
+                    parse_run.manifest_id,
+                    parse_run.batch_id,
+                    parse_run.parser,
+                    parse_run.chunk_strategy_version,
+                    parse_run.parse_strategy_version,
+                    parse_run.data_release_id,
+                    parse_run.started_at,
+                    parse_run.finished_at,
+                    parse_run.source_count,
+                    parse_run.section_count,
+                    parse_run.chunk_count,
+                    parse_run.anchor_count,
+                    parse_run.quality_status,
+                    parse_run.week8_ready,
+                    _jsonb(parse_run.warnings),
+                    _jsonb(parse_run.errors),
+                    _jsonb(parse_run.artifacts),
                 )
+
+                for sample in quality_samples:
+                    await conn.execute(
+                        """
+                        INSERT INTO chunk_quality_sample (
+                            sample_id, chunk_id, section_id, status, reason_codes, checks
+                        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb)
+                        ON CONFLICT (sample_id) DO UPDATE SET
+                            status = EXCLUDED.status,
+                            reason_codes = EXCLUDED.reason_codes,
+                            checks = EXCLUDED.checks
+                        """,
+                        sample["sample_id"],
+                        sample["chunk_id"],
+                        sample["section_id"],
+                        sample["status"],
+                        sample["reason_codes"],
+                        _jsonb(sample["checks"]),
+                    )
+    finally:
+        await close_pool()
 
 
 def run_parse_pipeline(

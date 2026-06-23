@@ -12,6 +12,7 @@ ALTER TABLE knowledge_doc
 ALTER TABLE knowledge_section
     ADD COLUMN IF NOT EXISTS asset_type TEXT,
     ADD COLUMN IF NOT EXISTS source_fingerprint TEXT,
+    ADD COLUMN IF NOT EXISTS chunk_strategy_version TEXT,
     ADD COLUMN IF NOT EXISTS parse_strategy_version TEXT,
     ADD COLUMN IF NOT EXISTS parser_backend TEXT,
     ADD COLUMN IF NOT EXISTS parser_capability JSONB DEFAULT '{}'::jsonb,

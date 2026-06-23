@@ -2,6 +2,22 @@
 
 Week09 turns reusable engineering craft into portable Agent Skill Packs.
 
+## Code Architecture Map
+
+![Week09 Agent Skills 宏观代码架构图](../../assets/week09/skill-pack-code-architecture.png)
+
+This diagram anchors Week09 at the repository-file level:
+
+- upstream learning artifacts from Week02, Week03/06, and Week08 become reusable
+  skill-pack content;
+- `skills/<skill-name>/SKILL.md` is the discoverable and lazily loaded operating
+  manual;
+- `scripts/`, `references/`, and `assets/` remain explicit resources, not
+  hidden automatic actions;
+- the Tool API registry exports activation descriptors for agents without
+  executing risky side effects;
+- release manifests lock skill digests for versioned, auditable delivery.
+
 ## Scope
 
 Student Core implements:
@@ -56,4 +72,3 @@ Run:
 pytest tests/contract/test_week09_skill_packs.py -v
 pytest tests/integration/test_week09_skill_registry.py -v
 ```
-

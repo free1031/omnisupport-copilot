@@ -227,7 +227,7 @@ async def run_ingest(
     report_path: Path | None = None,
     state_path: Path | None = DEFAULT_STATE_PATH,
 ) -> dict:
-    from pipelines.ingestion.db import acquire
+    from pipelines.ingestion.db import acquire, close_pool
 
     validator = TicketValidator()
 
@@ -243,25 +243,8 @@ async def run_ingest(
     }
     source_cursors: dict[str, str] = {}
 
-    if dry_run:
-        async for ticket in iter_jsonl(input_path):
-            if limit and stats["total"] >= limit:
-                break
-
-            stats["total"] += 1
-            errs = validator.validate(ticket)
-            if errs:
-                stats["invalid"] += 1
-                logger.warning(f"Ticket {ticket.get('ticket_id')} invalid: {errs}")
-                continue
-
-            stats["valid"] += 1
-
-            stats["skipped"] += 1
-            logger.debug(f"[dry-run] {ticket['ticket_id']}")
-    else:
-        async with acquire() as conn:
-            await ensure_ticket_bronze_idempotency(conn)
+    try:
+        if dry_run:
             async for ticket in iter_jsonl(input_path):
                 if limit and stats["total"] >= limit:
                     break
@@ -275,46 +258,67 @@ async def run_ingest(
 
                 stats["valid"] += 1
 
-                try:
-                    async with conn.transaction():
-                        bronze_inserted = await upsert_ticket_bronze(conn, ticket, batch_id)
-                        await upsert_ticket_silver(conn, ticket, batch_id)
-                    stats["processed"] += 1
-                    stats["silver_upserted"] += 1
-                    if bronze_inserted:
-                        stats["inserted"] += 1
-                        stats["bronze_inserted"] += 1
-                    else:
-                        stats["skipped"] += 1
-                        stats["bronze_duplicates"] += 1
-                    source_id = ticket.get("source_id", "unknown")
-                    cursor = _ticket_cursor(ticket)
-                    if cursor and cursor > source_cursors.get(source_id, ""):
-                        source_cursors[source_id] = cursor
-                except Exception as e:
-                    stats["errors"] += 1
-                    logger.error(f"DB error for {ticket.get('ticket_id')}: {e}")
+                stats["skipped"] += 1
+                logger.debug(f"[dry-run] {ticket['ticket_id']}")
+        else:
+            async with acquire() as conn:
+                await ensure_ticket_bronze_idempotency(conn)
+                async for ticket in iter_jsonl(input_path):
+                    if limit and stats["total"] >= limit:
+                        break
 
-                if stats["total"] % 100 == 0:
-                    logger.info(
-                        f"Progress: {stats['total']} processed, "
-                        f"{stats['inserted']} inserted, {stats['errors']} errors"
-                    )
+                    stats["total"] += 1
+                    errs = validator.validate(ticket)
+                    if errs:
+                        stats["invalid"] += 1
+                        logger.warning(f"Ticket {ticket.get('ticket_id')} invalid: {errs}")
+                        continue
 
-            if state_path and stats["errors"] == 0 and stats["invalid"] == 0:
-                for source_id, cursor in source_cursors.items():
-                    upsert_checkpoint(
-                        source_id=source_id,
-                        last_processed_cursor=cursor,
-                        last_success_batch_id=batch_id,
-                        last_run_id=f"ticket-ingest::{batch_id}",
-                        state_path=state_path,
-                    )
-                    stats["checkpoints_written"] += 1
-            elif not state_path:
-                stats["checkpoint_skipped_reason"] = "state_path_disabled"
-            elif stats["errors"] or stats["invalid"]:
-                stats["checkpoint_skipped_reason"] = "ingest_not_clean"
+                    stats["valid"] += 1
+
+                    try:
+                        async with conn.transaction():
+                            bronze_inserted = await upsert_ticket_bronze(conn, ticket, batch_id)
+                            await upsert_ticket_silver(conn, ticket, batch_id)
+                        stats["processed"] += 1
+                        stats["silver_upserted"] += 1
+                        if bronze_inserted:
+                            stats["inserted"] += 1
+                            stats["bronze_inserted"] += 1
+                        else:
+                            stats["skipped"] += 1
+                            stats["bronze_duplicates"] += 1
+                        source_id = ticket.get("source_id", "unknown")
+                        cursor = _ticket_cursor(ticket)
+                        if cursor and cursor > source_cursors.get(source_id, ""):
+                            source_cursors[source_id] = cursor
+                    except Exception as e:
+                        stats["errors"] += 1
+                        logger.error(f"DB error for {ticket.get('ticket_id')}: {e}")
+
+                    if stats["total"] % 100 == 0:
+                        logger.info(
+                            f"Progress: {stats['total']} processed, "
+                            f"{stats['inserted']} inserted, {stats['errors']} errors"
+                        )
+
+                if state_path and stats["errors"] == 0 and stats["invalid"] == 0:
+                    for source_id, cursor in source_cursors.items():
+                        upsert_checkpoint(
+                            source_id=source_id,
+                            last_processed_cursor=cursor,
+                            last_success_batch_id=batch_id,
+                            last_run_id=f"ticket-ingest::{batch_id}",
+                            state_path=state_path,
+                        )
+                        stats["checkpoints_written"] += 1
+                elif not state_path:
+                    stats["checkpoint_skipped_reason"] = "state_path_disabled"
+                elif stats["errors"] or stats["invalid"]:
+                    stats["checkpoint_skipped_reason"] = "ingest_not_clean"
+    finally:
+        if not dry_run:
+            await close_pool()
 
     _log_summary(stats)
     _write_ticket_report(stats, report_path)

@@ -26,6 +26,7 @@ CONTRACTS_DIR = PROJECT_ROOT / "contracts" / "data"
 FIXTURE_PATH = PROJECT_ROOT / "tests" / "contract" / "fixtures" / "week02" / "sample_records.json"
 MANIFEST_SCHEMA_PATH = PROJECT_ROOT / "data" / "seed_manifests" / "source_manifest_schema.json"
 PRACTICE_MANIFEST_PATH = PROJECT_ROOT / "data" / "seed_manifests" / "manifest_week02_practice_v1.json"
+WEEK07_MULTIMODAL_MANIFEST_PATH = PROJECT_ROOT / "data" / "seed_manifests" / "manifest_week07_multimodal_v1.json"
 WEEK01_MANIFEST_PATHS = [
     PROJECT_ROOT / "data" / "seed_manifests" / "manifest_edge_gateway_pdf_v1.json",
     PROJECT_ROOT / "data" / "seed_manifests" / "manifest_tickets_synthetic_v1.json",
@@ -146,3 +147,23 @@ def test_seed_loader_can_limit_run_to_explicit_manifest_paths():
     assert all(result.warn_count == 0 for result in results)
     assert all(result.quarantine_count == 0 for result in results)
     assert all(result.fail_count == 0 for result in results)
+
+
+def test_week07_multimodal_manifest_validates_real_asset_contracts():
+    manifest = load_json(WEEK07_MULTIMODAL_MANIFEST_PATH)
+
+    errors = ManifestValidator().validate(manifest)
+
+    assert errors == []
+
+    loader = SeedLoader(
+        manifest_dir=PROJECT_ROOT / "data" / "seed_manifests",
+        manifest_paths=[WEEK07_MULTIMODAL_MANIFEST_PATH],
+        batch_id="batch-test-week07-multimodal",
+        dry_run=True,
+    )
+    results = loader.run()
+    assert not loader.rejected_manifests
+    assert len(results) == 1
+    assert results[0].accepted_count == 4
+    assert results[0].fail_count == 0

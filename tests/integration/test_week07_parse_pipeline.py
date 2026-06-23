@@ -1,4 +1,5 @@
 import json
+import asyncio
 from pathlib import Path
 import sys
 
@@ -9,7 +10,16 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from pipelines.parse_normalize.models import sha256_bytes
-from pipelines.parse_normalize.run_parse import run_parse_pipeline
+from pipelines.parse_normalize.run_parse import _ensure_week07_parse_schema, run_parse_pipeline
+
+
+class _RecordingConnection:
+    def __init__(self):
+        self.statements: list[str] = []
+
+    async def execute(self, statement: str, *args):
+        self.statements.append(statement)
+        return "OK"
 
 
 def _write_manifest(tmp_path: Path, source_path: Path, checksum: str) -> Path:
@@ -105,3 +115,35 @@ def test_week07_expected_fingerprint_mismatch_fails(tmp_path: Path):
             quality_report_md=None,
             week8_gate_json=None,
         )
+
+
+def test_week07_db_schema_guard_covers_parse_persist_columns():
+    conn = _RecordingConnection()
+
+    asyncio.run(_ensure_week07_parse_schema(conn))
+
+    sql = "\n".join(conn.statements)
+    expected_fragments = [
+        "ALTER TYPE asset_modality ADD VALUE IF NOT EXISTS 'image'",
+        "ALTER TABLE knowledge_doc",
+        "parse_strategy_version TEXT",
+        "parser_backend TEXT",
+        "parser_capability JSONB",
+        "source_url_or_path TEXT",
+        "parse_run_id TEXT",
+        "parsed_at TIMESTAMPTZ",
+        "ALTER TABLE knowledge_section",
+        "chunk_strategy_version TEXT",
+        "evidence_anchor_ids TEXT[]",
+        "allowed_for_indexing BOOLEAN",
+        "span_start INT",
+        "heading_path JSONB",
+        "ALTER TABLE evidence_anchor",
+        "metadata JSONB",
+        "retrieval_method TEXT",
+        "CREATE TABLE IF NOT EXISTS document_parse_run",
+        "CREATE TABLE IF NOT EXISTS chunk_quality_sample",
+        "idx_week07_anchor_doc_span",
+    ]
+    missing = [fragment for fragment in expected_fragments if fragment not in sql]
+    assert missing == []

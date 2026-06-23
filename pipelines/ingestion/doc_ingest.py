@@ -176,7 +176,7 @@ async def run_doc_ingest(
     dry_run: bool = False,
     report_path: Path | None = None,
 ) -> dict:
-    from pipelines.ingestion.db import acquire
+    from pipelines.ingestion.db import acquire, close_pool
     from pipelines.ingestion.seed_loader import ManifestValidator, SeedLoader
 
     manifest = json.loads(manifest_path.read_text())
@@ -214,62 +214,66 @@ async def run_doc_ingest(
 
     loader = SeedLoader(manifest_path.parent, batch_id=batch_id, dry_run=dry_run)
 
-    if dry_run:
-        for asset in loader.iter_assets(manifest):
-            stats["total"] += 1
-            source_id = asset["source_id"]
-            logger.info(f"[dry-run] Would ingest doc: {source_id}")
-            stats["skipped"] += 1
-    else:
-        async with acquire() as conn:
+    try:
+        if dry_run:
             for asset in loader.iter_assets(manifest):
                 stats["total"] += 1
                 source_id = asset["source_id"]
-                source_path = asset["source_url_or_path"]
+                logger.info(f"[dry-run] Would ingest doc: {source_id}")
+                stats["skipped"] += 1
+        else:
+            async with acquire() as conn:
+                for asset in loader.iter_assets(manifest):
+                    stats["total"] += 1
+                    source_id = asset["source_id"]
+                    source_path = asset["source_url_or_path"]
 
-                # ── 读取文件字节 ─────────────────────────────────────────────────
-                raw_bytes = await read_asset_bytes(source_path, source_dir)
-                if raw_bytes is None:
-                    logger.warning(f"File not found, skipping: {source_path}")
-                    stats["skipped"] += 1
-                    continue
+                    # ── 读取文件字节 ─────────────────────────────────────────────
+                    raw_bytes = await read_asset_bytes(source_path, source_dir)
+                    if raw_bytes is None:
+                        logger.warning(f"File not found, skipping: {source_path}")
+                        stats["skipped"] += 1
+                        continue
 
-                fingerprint = hashlib.sha256(raw_bytes).hexdigest()
+                    fingerprint = hashlib.sha256(raw_bytes).hexdigest()
 
-                # ── MinIO 上传 ────────────────────────────────────────────────────
-                raw_object_path = source_path   # 默认保持原路径
-                if minio:
-                    bucket = "omni-raw-documents"
-                    product = asset.get("_product_line", "unknown")
-                    key = f"{product}/{asset.get('asset_type', 'misc')}/{Path(source_path).name}"
+                    # ── MinIO 上传 ──────────────────────────────────────────────
+                    raw_object_path = source_path   # 默认保持原路径
+                    if minio:
+                        bucket = "omni-raw-documents"
+                        product = asset.get("_product_line", "unknown")
+                        key = f"{product}/{asset.get('asset_type', 'misc')}/{Path(source_path).name}"
 
-                    if not minio.object_exists(bucket, key):
-                        try:
-                            ext = Path(source_path).suffix.lower()
-                            content_type = {
-                                ".pdf": "application/pdf",
-                                ".html": "text/html",
-                                ".json": "application/json",
-                            }.get(ext, "application/octet-stream")
-                            raw_object_path = minio.upload_bytes(bucket, key, raw_bytes, content_type)
-                            stats["uploaded"] += 1
-                        except Exception as e:
-                            logger.error(f"MinIO upload failed for {source_id}: {e}")
-                            stats["errors"] += 1
-                            continue
-                    else:
-                        raw_object_path = f"s3://{bucket}/{key}"
-                        logger.debug(f"Already in MinIO, skipping upload: {key}")
+                        if not minio.object_exists(bucket, key):
+                            try:
+                                ext = Path(source_path).suffix.lower()
+                                content_type = {
+                                    ".pdf": "application/pdf",
+                                    ".html": "text/html",
+                                    ".json": "application/json",
+                                }.get(ext, "application/octet-stream")
+                                raw_object_path = minio.upload_bytes(bucket, key, raw_bytes, content_type)
+                                stats["uploaded"] += 1
+                            except Exception as e:
+                                logger.error(f"MinIO upload failed for {source_id}: {e}")
+                                stats["errors"] += 1
+                                continue
+                        else:
+                            raw_object_path = f"s3://{bucket}/{key}"
+                            logger.debug(f"Already in MinIO, skipping upload: {key}")
 
-                # ── DB 写入 ───────────────────────────────────────────────────────
-                try:
-                    async with conn.transaction():
-                        await upsert_raw_doc_asset(conn, asset, batch_id, raw_object_path, fingerprint)
-                        await upsert_knowledge_doc(conn, asset, source_id, batch_id)
-                    stats["db_inserted"] += 1
-                except Exception as e:
-                    logger.error(f"DB write failed for {source_id}: {e}")
-                    stats["errors"] += 1
+                    # ── DB 写入 ─────────────────────────────────────────────────
+                    try:
+                        async with conn.transaction():
+                            await upsert_raw_doc_asset(conn, asset, batch_id, raw_object_path, fingerprint)
+                            await upsert_knowledge_doc(conn, asset, source_id, batch_id)
+                        stats["db_inserted"] += 1
+                    except Exception as e:
+                        logger.error(f"DB write failed for {source_id}: {e}")
+                        stats["errors"] += 1
+    finally:
+        if not dry_run:
+            await close_pool()
 
     _log_doc_summary(stats)
     _write_doc_report(stats, report_path)

@@ -39,7 +39,7 @@ CONTRACT_REGISTRY = {
     "omni://contracts/data/doc_asset/v1": {
         "modalities": {"document"},
         "source_types": {"help_center", "faq", "release_notes", "api_doc", "pdf_manual", "community", "other"},
-        "asset_types": {"pdf", "html", "faq", "release_notes", "api_doc", "community_post", "other"},
+        "asset_types": {"pdf", "html", "faq", "release_notes", "api_doc", "community_post", "image", "other"},
     },
     "omni://contracts/data/ticket/v1": {
         "modalities": {"structured"},
@@ -49,12 +49,12 @@ CONTRACT_REGISTRY = {
     "omni://contracts/data/audio_asset/v1": {
         "modalities": {"audio"},
         "source_types": {"call_recording", "tts_synthetic", "other"},
-        "asset_types": {"wav", "mp3", "m4a", "flac", "jsonl", "other"},
+        "asset_types": {"audio", "wav", "mp3", "m4a", "flac", "jsonl", "other"},
     },
     "omni://contracts/data/video_asset/v1": {
         "modalities": {"video"},
         "source_types": {"tutorial_video", "screencast", "other"},
-        "asset_types": {"mp4", "mov", "mkv", "jsonl", "other"},
+        "asset_types": {"video", "mp4", "mov", "mkv", "jsonl", "other"},
     },
 }
 

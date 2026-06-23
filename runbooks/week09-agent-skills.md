@@ -1,5 +1,25 @@
 # Week09 Agent Skills Runbook
 
+## Code Architecture Map
+
+![Week09 Agent Skills 宏观代码架构图](../docs/assets/week09/skill-pack-code-architecture.png)
+
+Read this map before running the commands below. Week09 is not a new ingestion
+pipeline; it packages prior weeks' repeatable engineering craft into discoverable
+Agent Skill Packs:
+
+- `skills/<skill-name>/` owns portable instructions, scripts, references, and
+  templates.
+- `contracts/skills/skill_pack.schema.json` keeps skill metadata stable enough
+  for registry discovery.
+- `services/tool_api/app/skill_registry.py` implements progressive loading:
+  discover frontmatter first, load full bodies and artifacts only when a skill is
+  activated.
+- `services/tool_api/app/routers/skills.py` exposes read-only query endpoints
+  for skills and OpenAI/MCP-compatible exports.
+- `contracts/release/release_manifest_schema.json` binds skill digests into
+  release governance so skill packs become traceable release artifacts.
+
 ## Inspect Skill Packs
 
 ```bash
@@ -67,4 +87,3 @@ Then show Tool API progressive loading. The main distinction:
 - Skill Pack: portable instructions and craft.
 - Tool Contract: executable business action boundary.
 - MCP/OpenAI export: adapter layer for discovery and activation.
-

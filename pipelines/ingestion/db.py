@@ -32,9 +32,16 @@ async def get_pool() -> asyncpg.Pool:
 
 async def close_pool():
     global _pool
-    if _pool:
-        await _pool.close()
-        _pool = None
+    pool = _pool
+    _pool = None
+    if pool:
+        try:
+            await pool.close()
+        except RuntimeError as exc:
+            if "Event loop is closed" not in str(exc):
+                _pool = pool
+                raise
+            logger.warning("Database pool belonged to a closed event loop; dropping stale pool reference")
 
 
 @asynccontextmanager
