@@ -1,0 +1,101 @@
+{
+  "name": "knowledge_search",
+  "version": "v1.0",
+  "description": "把 Week08 RAG 检索能力包装成 Agent 可治理工具：输入必须结构化，输出必须带 evidence_anchor、trace_id 和 release_id，低置信度时进入 fallback 或 HITL。",
+  "input_schema": {
+    "type": "object",
+    "required": ["query", "trace_id"],
+    "additionalProperties": false,
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "用户问题或检索关键词",
+        "maxLength": 2048
+      },
+      "product_line": {
+        "type": "string",
+        "enum": ["northstar_workspace", "northstar_edge_gateway", "northstar_studio", "any"],
+        "default": "any"
+      },
+      "modalities": {
+        "type": "array",
+        "items": {"type": "string", "enum": ["document", "audio", "video", "image"]},
+        "default": ["document"]
+      },
+      "top_k": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 5
+      },
+      "min_score": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.6
+      },
+      "trace_id": {
+        "type": "string",
+        "minLength": 8
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "required": ["results", "trace_id", "release_id"],
+    "properties": {
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["chunk_id", "content", "score", "evidence_anchor"],
+          "properties": {
+            "chunk_id": {"type": "string"},
+            "content": {"type": "string"},
+            "score": {"type": "number"},
+            "evidence_anchor": {
+              "type": "object",
+              "required": ["source_id", "source_url", "page_no", "section_path"],
+              "properties": {
+                "source_id": {"type": "string"},
+                "source_url": {"type": "string"},
+                "page_no": {"type": ["integer", "null"]},
+                "section_path": {"type": "string"},
+                "doc_version": {"type": "string"}
+              }
+            }
+          }
+        }
+      },
+      "trace_id": {"type": "string"},
+      "release_id": {"type": "string"},
+      "fallback_level": {"type": "string"},
+      "retrieval_debug": {"type": "object"}
+    }
+  },
+  "allowed_roles": ["end_user", "support_agent", "admin"],
+  "idempotent": true,
+  "idempotency_key_fields": ["query", "product_line", "top_k"],
+  "audit_fields": {
+    "log_input": true,
+    "log_output": true,
+    "log_actor": true,
+    "retention_days": 90
+  },
+  "failure_codes": {
+    "RETRIEVAL_EMPTY": "检索结果为空，可能查询过于特殊或知识库未覆盖",
+    "SCORE_TOO_LOW": "所有结果得分低于 min_score 阈值",
+    "INDEX_UNAVAILABLE": "向量索引不可用，请联系管理员",
+    "INVALID_QUERY": "查询参数格式不合法"
+  },
+  "hitl_conditions": [
+    {
+      "condition": "min_score < 0.4",
+      "action": "pause_and_notify"
+    }
+  ],
+  "rate_limit": {
+    "calls_per_minute": 60,
+    "calls_per_hour": 1000
+  }
+}

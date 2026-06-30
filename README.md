@@ -234,7 +234,9 @@ omnisupport-copilot/
 | W06 | 🔄 | 资产化编排、daily partitions、backfill dry-run、asset checks、run evidence |
 | W07 | 🔄 | IDP-first parse/normalize、structure-aware chunk、evidence anchor、quality gate、Week08 ready gate |
 | W08 | 🔄 | 混合检索、RAG API、citation contract、smoke eval |
-| W09-15 | 📅 | Tool层、评测、Tracing、GraphRAG、治理、Capstone |
+| W09 | 🔄 | Agent Skill Pack、只读 Skill Registry、OpenAI/MCP 导出、release manifest 绑定 |
+| W10 | 🔄 | Tool Contract Registry、受控写动作、HITL checkpoint、fallback、action lineage |
+| W11-15 | 📅 | 评测、Tracing、GraphRAG、治理、Capstone |
 
 ## Week04 Lakehouse 最小闭环
 
@@ -379,6 +381,33 @@ Week07 runbook: [runbooks/week07-unstructured-data.md](runbooks/week07-unstructu
 - 默认 manifest 指向课程占位 S3 路径，本地 dry-run 会明确标记 fallback；真实索引前需要提供 raw file 或对象存储读取。
 - `manifest_week07_multimodal_v1.json` 使用真实课程素材，覆盖 PDF、图片 OCR、音频 transcript、视频 keyframe/transcript。
 - Week08 只能消费 `allowed_for_indexing=true` 且有 evidence anchor 的 chunk。
+
+---
+
+## Week10 Controlled Agent 最小闭环
+
+Week10 不让 LLM 自由执行危险动作，而是把工具调用放进契约、权限、幂等、HITL、fallback 和 action lineage 控制面。
+
+```bash
+# 1. 校验受控工具契约
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox \
+  pytest tests/contract/test_week10_controlled_agent_contracts.py -v
+
+# 2. 校验受控 Agent 执行逻辑
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox \
+  pytest tests/integration/test_week10_controlled_agent.py -v
+
+# 3. 跑 HITL 课堂演示
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox \
+  python demos/e2e_hitl_path.py
+```
+
+Week10 runbook: [runbooks/week10-controlled-agent.md](runbooks/week10-controlled-agent.md)
+
+边界说明：
+- `services/tool_api/app/routers/tool_contracts.py` 只提供契约发现和导出，不执行危险动作。
+- `ticket_update` 是 Week10 受控写动作示例，金融/外部影响动作必须先进入 HITL。
+- `agent/copilot.py` 是确定性控制面，不是完整 LLM autonomous agent。
 
 ---
 

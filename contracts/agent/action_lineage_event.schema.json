@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12",
+  "$id": "omni://contracts/agent/action_lineage_event/v1",
+  "title": "ActionLineageEvent",
+  "description": "Week10 受控 Agent 动作血缘事件。每个可写动作必须绑定数据快照、证据、提示词、工具、模型和技能版本。",
+  "type": "object",
+  "required": [
+    "event_id",
+    "trace_id",
+    "tool_name",
+    "tool_version",
+    "status",
+    "bindings",
+    "created_at"
+  ],
+  "properties": {
+    "event_id": {"type": "string"},
+    "trace_id": {"type": "string"},
+    "actor_id": {"type": ["string", "null"]},
+    "tool_name": {"type": "string"},
+    "tool_version": {"type": "string"},
+    "status": {"type": "string"},
+    "approval_id": {"type": ["string", "null"]},
+    "audit_id": {"type": ["string", "null"]},
+    "bindings": {
+      "type": "object",
+      "required": [
+        "data_snapshot_id",
+        "evidence_ids",
+        "prompt_release_id",
+        "model_version",
+        "skill_release_id"
+      ],
+      "properties": {
+        "data_snapshot_id": {"type": ["string", "null"]},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "prompt_release_id": {"type": ["string", "null"]},
+        "model_version": {"type": ["string", "null"]},
+        "skill_release_id": {"type": ["string", "null"]}
+      }
+    },
+    "payload_digest": {"type": "string"},
+    "output_ref": {"type": ["string", "null"]},
+    "created_at": {"type": "string"}
+  },
+  "additionalProperties": false
+}

@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     release_id: str = "dev-local"
     metric_registry_path: str = "/workspace/analytics/metric_registry_v1.yml"
     skill_registry_path: str = "/workspace/skills"
+    tool_contracts_path: str = "/workspace/contracts/tools/tools"
+    tool_contract_schema_path: str = "/workspace/contracts/tools/tool_contract_schema.json"
 
     # HITL 配置
     hitl_webhook_url: str = ""   # Week10 接入

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12",
+  "$id": "omni://contracts/agent/hitl_approval/v1",
+  "title": "HITLApproval",
+  "description": "Week10 人工审批 checkpoint 记录。高风险动作必须先落 checkpoint，审批后再恢复执行。",
+  "type": "object",
+  "required": [
+    "approval_id",
+    "trace_id",
+    "tool_name",
+    "action",
+    "status",
+    "reason_codes",
+    "payload_digest",
+    "created_at"
+  ],
+  "properties": {
+    "approval_id": {"type": "string"},
+    "trace_id": {"type": "string"},
+    "tool_name": {"type": "string"},
+    "action": {"type": "string", "enum": ["pause_and_notify", "reject", "require_approval"]},
+    "status": {"type": "string", "enum": ["pending", "approved", "rejected", "expired"]},
+    "reviewer": {"type": ["string", "null"]},
+    "decision_reason": {"type": ["string", "null"]},
+    "reason_codes": {"type": "array", "items": {"type": "string"}},
+    "payload_digest": {"type": "string"},
+    "created_at": {"type": "string"},
+    "decided_at": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

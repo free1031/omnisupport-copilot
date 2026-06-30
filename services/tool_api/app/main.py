@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.routers import health, kpis, skills, tickets
+from app.routers import health, kpis, skills, tickets, tool_contracts
 
 
 @asynccontextmanager
@@ -60,5 +60,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(health.router)
 app.include_router(skills.router, prefix="/api/v1")
+app.include_router(tool_contracts.router, prefix="/api/v1")
 app.include_router(tickets.router, prefix="/api/v1/tools")
 app.include_router(kpis.router, prefix="/api/v1/tools")

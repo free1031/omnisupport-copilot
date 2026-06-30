@@ -1,0 +1,174 @@
+{
+  "name": "ticket_update",
+  "version": "v1.0",
+  "description": "受控更新支持工单。普通内部写入可自动执行；外部影响、服务抵扣、退款等高风险动作必须经过 HITL 审批和 action lineage 审计。",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "ticket_id",
+      "operation",
+      "reason",
+      "actor_role",
+      "risk_level",
+      "idempotency_key",
+      "trace_id"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ticket_id": {
+        "type": "string",
+        "pattern": "^TKT-[0-9]{8}-[0-9A-Z]{6}$",
+        "description": "被更新的工单 ID"
+      },
+      "operation": {
+        "type": "string",
+        "enum": [
+          "add_internal_note",
+          "update_status",
+          "change_priority",
+          "assign_agent",
+          "grant_service_credit",
+          "refund_payment"
+        ],
+        "description": "工单动作类型"
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 2048,
+        "description": "执行动作的业务原因，必须可审计"
+      },
+      "actor_id": {
+        "type": "string",
+        "description": "发起动作的人员或服务账号"
+      },
+      "actor_role": {
+        "type": "string",
+        "enum": ["support_agent", "support_ops", "admin", "billing_ops"],
+        "description": "发起动作的角色"
+      },
+      "risk_level": {
+        "type": "string",
+        "enum": ["read_only", "internal_write", "external_write", "financial"],
+        "description": "动作风险等级，由规则层或工作流层给出，不交给 LLM 自由判断"
+      },
+      "new_status": {
+        "type": "string",
+        "enum": ["open", "pending", "in_progress", "resolved", "closed", "escalated"]
+      },
+      "new_priority": {
+        "type": "string",
+        "enum": ["p1_critical", "p2_high", "p3_medium", "p4_low"]
+      },
+      "assignee_id": {
+        "type": "string"
+      },
+      "amount_cents": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "服务抵扣或退款金额，单位为分"
+      },
+      "currency": {
+        "type": "string",
+        "enum": ["USD", "CNY"],
+        "default": "USD"
+      },
+      "evidence_ids": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "支撑动作的 evidence_anchor 或检索证据 ID"
+      },
+      "data_snapshot_id": {
+        "type": "string",
+        "description": "动作依赖的数据快照 ID，用于 Week04/Week06 资产状态追溯"
+      },
+      "data_release_id": {
+        "type": "string",
+        "description": "动作依赖的数据发布 ID，无法提供 snapshot 时使用"
+      },
+      "prompt_release_id": {
+        "type": "string"
+      },
+      "model_version": {
+        "type": "string"
+      },
+      "skill_release_id": {
+        "type": "string"
+      },
+      "idempotency_key": {
+        "type": "string",
+        "minLength": 8,
+        "description": "客户端或工作流提供的幂等键，避免重复执行写入动作"
+      },
+      "trace_id": {
+        "type": "string",
+        "minLength": 8,
+        "description": "贯穿 OpenLineage、OTel、audit_log、action lineage 的追踪 ID"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "required": ["ticket_id", "operation", "status", "trace_id", "lineage_event_id"],
+    "additionalProperties": false,
+    "properties": {
+      "ticket_id": {"type": "string"},
+      "operation": {"type": "string"},
+      "status": {
+        "type": "string",
+        "enum": ["completed", "awaiting_approval", "denied", "cached", "failed"]
+      },
+      "trace_id": {"type": "string"},
+      "lineage_event_id": {"type": "string"},
+      "release_id": {"type": "string"},
+      "approval_id": {"type": ["string", "null"]},
+      "hitl_required": {"type": "boolean"},
+      "reason_codes": {
+        "type": "array",
+        "items": {"type": "string"}
+      },
+      "denial_code": {"type": "string"},
+      "message": {"type": "string"},
+      "cached_from": {"type": "string"}
+    }
+  },
+  "allowed_roles": ["support_agent", "support_ops", "admin", "billing_ops"],
+  "idempotent": true,
+  "idempotency_key_fields": ["idempotency_key"],
+  "audit_fields": {
+    "log_input": true,
+    "log_output": true,
+    "log_actor": true,
+    "retention_days": 730
+  },
+  "failure_codes": {
+    "VALIDATION_ERROR": "输入参数校验失败",
+    "PERMISSION_DENIED": "角色无权调用该工具",
+    "IDEMPOTENCY_CONFLICT": "相同幂等键对应不同参数，拒绝重复执行",
+    "HITL_REQUIRED": "动作需要人工审批后才能执行",
+    "HITL_REJECTED": "人工审批拒绝",
+    "TOOL_UNAVAILABLE": "下游工具或数据库暂时不可用"
+  },
+  "hitl_conditions": [
+    {
+      "condition": "operation == 'refund_payment'",
+      "action": "require_approval"
+    },
+    {
+      "condition": "operation == 'grant_service_credit' AND amount_cents >= 50000",
+      "action": "require_approval"
+    },
+    {
+      "condition": "risk_level == 'external_write'",
+      "action": "pause_and_notify"
+    },
+    {
+      "condition": "risk_level == 'financial'",
+      "action": "require_approval"
+    }
+  ],
+  "rate_limit": {
+    "calls_per_minute": 10,
+    "calls_per_hour": 100
+  }
+}
