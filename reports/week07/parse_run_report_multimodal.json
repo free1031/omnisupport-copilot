@@ -1,0 +1,31 @@
+{
+  "parse_run_id": "parse-run-8455249de4ad744e",
+  "status": "warn",
+  "manifest_id": "manifest-week07-multimodal-20260424-001",
+  "batch_id": "batch-20260424-007",
+  "parser": "auto",
+  "chunk_strategy_version": "section_aware_v1",
+  "parse_strategy_version": "parse_normalize_v1",
+  "data_release_id": "week07-multimodal-local-01",
+  "started_at": "2026-06-23T01:07:09.686992+00:00",
+  "finished_at": "2026-06-23T01:07:10.341641+00:00",
+  "source_count": 4,
+  "section_count": 7,
+  "chunk_count": 7,
+  "anchor_count": 7,
+  "quality_status": "warn",
+  "week8_ready": true,
+  "warnings": [
+    "fallback_parser_used",
+    "idp_parser_unavailable_pypdf_baseline_used",
+    "image_ocr_failed",
+    "video_keyframe_ocr_failed"
+  ],
+  "errors": [],
+  "artifacts": {
+    "sections": "artifacts/week07-multimodal/sections.json",
+    "chunks": "artifacts/week07-multimodal/chunks.json",
+    "evidence_anchors": "artifacts/week07-multimodal/evidence_anchors.json",
+    "quality_samples": "artifacts/week07-multimodal/chunk_quality_samples.json"
+  }
+}

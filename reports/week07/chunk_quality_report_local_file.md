@@ -1,15 +1,15 @@
 # Week07 Chunk Quality Report
 
-- Parse run: `parse-run-e4cc449a865e0d4e`
-- Data release: `week07-dev-local-01`
+- Parse run: `parse-run-8c3dac8826a7a95b`
+- Data release: `week07-local-file-demo`
 - Quality status: `warn`
 - Week8 ready: `false`
 
 ## Metrics
 
-- `section_count`: 20
-- `chunk_count`: 20
-- `anchor_count`: 20
+- `section_count`: 5
+- `chunk_count`: 5
+- `anchor_count`: 5
 - `metadata_completeness`: 1.0
 - `anchor_coverage`: 1.0
 - `empty_chunk_count`: 0
@@ -17,8 +17,8 @@
 - `orphan_chunk_count`: 0
 - `orphan_anchor_count`: 0
 - `pdf_missing_page_count`: 0
-- `fallback_chunk_count`: 20
-- `synthetic_source_chunk_count`: 20
+- `fallback_chunk_count`: 5
+- `synthetic_source_chunk_count`: 5
 - `media_blocked_chunk_count`: 0
 - `pii_suspected_chunk_count`: 0
 - `allowed_for_indexing_count`: 0

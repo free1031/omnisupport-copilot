@@ -1,0 +1,20 @@
+{
+  "index_release_id": "index-week08-dev",
+  "data_release_id": "data-week08-dev",
+  "chunk_strategy_version": "section_aware_v1",
+  "embedding_model": "dry_run",
+  "embedding_dim": 1536,
+  "provider": "dry_run",
+  "built_at": "2026-06-30T07:03:54.296639+00:00",
+  "source_table": "knowledge_section",
+  "total_chunks": 7,
+  "embedded_chunks": 0,
+  "skipped_chunks": 7,
+  "error_count": 0,
+  "quality_gate": "warn",
+  "notes": "Week8 index build completed with 7 skipped chunks.",
+  "warnings": [
+    "dry_run=true; embeddings were not generated"
+  ],
+  "elapsed_sec": 0.15752029418945312
+}

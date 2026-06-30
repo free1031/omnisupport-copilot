@@ -1,0 +1,29 @@
+{
+  "parse_run_id": "parse-run-8c3dac8826a7a95b",
+  "status": "warn",
+  "manifest_id": "manifest-local-src-2f9e456e791a",
+  "batch_id": "batch-local-week07",
+  "parser": "fallback",
+  "chunk_strategy_version": "section_aware_v1",
+  "parse_strategy_version": "parse_normalize_v1",
+  "data_release_id": "week07-local-file-demo",
+  "started_at": "2026-06-23T01:10:05.740346+00:00",
+  "finished_at": "2026-06-23T01:10:05.771391+00:00",
+  "source_count": 1,
+  "section_count": 5,
+  "chunk_count": 5,
+  "anchor_count": 5,
+  "quality_status": "warn",
+  "week8_ready": false,
+  "warnings": [
+    "fallback_parser_used",
+    "source_path_missing_synthetic_fallback"
+  ],
+  "errors": [],
+  "artifacts": {
+    "sections": "artifacts/week07-local-file/sections.json",
+    "chunks": "artifacts/week07-local-file/chunks.json",
+    "evidence_anchors": "artifacts/week07-local-file/evidence_anchors.json",
+    "quality_samples": "artifacts/week07-local-file/chunk_quality_samples.json"
+  }
+}

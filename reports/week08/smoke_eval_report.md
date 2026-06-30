@@ -2,9 +2,9 @@
 
 Week 8：从“搜得到”到“答得稳”——检索 × 生成的一体化工程闭环
 
-- Generated at: 2026-05-01 02:45:29
+- Generated at: 2026-06-30 07:07:04
 - Runner: `evals/week08/run_smoke_eval.py`
-- Elapsed: `12.12 ms`
+- Elapsed: `35.72 ms`
 - Result: `PASS`
 
 | case | status | evidence_count | abstain_reason | issues |
