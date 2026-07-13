@@ -1,7 +1,8 @@
 """应用配置 — 通过环境变量注入，支持 .env 文件"""
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -41,6 +42,10 @@ class Settings(BaseSettings):
     otel_service_name: str = "rag_api"
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
     otel_enabled: bool = True
+    otel_project_name: str = "omnisupport-copilot"
+    otel_environment: str = "dev"
+    otel_sample_ratio: float = 1.0
+    otel_capture_content: bool = False
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     cors_origins: List[str] = ["*"]

@@ -1,0 +1,25 @@
+version: week12-v1
+source: phoenix_spans
+project: omnisupport-copilot
+drilldown: overview -> span_group -> trace -> span -> action
+panels:
+  - name: overview
+    audience: oncall
+    metrics: [qps, error_rate, latency_p50_ms, latency_p99_ms]
+    root_span: rag.query
+  - name: quality
+    audience: ai_engineer
+    metrics: [citation_coverage, abstain_rate, low_confidence_rate, bad_case_rate]
+    attributes: [omni.evidence_count, omni.answer.confidence, omni.answer.abstain_reason]
+  - name: performance
+    audience: engineer
+    metrics: [retrieve_p99_ms, rerank_p99_ms, generate_p99_ms, hitl_wait_p99_ms]
+    spans: [rag.retrieve.hybrid, rag.rerank.cross, llm.generate, hitl.wait]
+  - name: cost
+    audience: product
+    metrics: [prompt_tokens, completion_tokens, cost_per_query_usd]
+    attributes: [llm.token_count.prompt, llm.token_count.completion, omni.cost.usd]
+  - name: errors
+    audience: oncall
+    metrics: [errors_by_type, tool_failures_by_name, pii_leak_count]
+    attributes: [error.type, tool.name, omni.pii_leak_count]

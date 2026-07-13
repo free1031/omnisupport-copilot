@@ -7,11 +7,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from observability.runtime import traced_span
 
 ToolCallable = Callable[[dict[str, Any]], Any]
 
 
-class FallbackExhausted(RuntimeError):
+class FallbackExhausted(RuntimeError):  # noqa: N818 - preserve the public Week10 API
     """Raised when every fallback step fails and no graceful response exists."""
 
 
@@ -52,24 +53,42 @@ class FallbackChain:
 
     async def run(self, payload: dict[str, Any]) -> FallbackResult:
         attempts: list[FallbackAttempt] = []
-        for name, step in self.steps:
-            try:
-                result = step(payload)
-                if inspect.isawaitable(result):
-                    result = await result
-                if not isinstance(result, dict):
-                    raise TypeError(f"fallback step {name} returned {type(result).__name__}, expected dict")
-                attempts.append(FallbackAttempt(name=name, status="ok"))
-                return FallbackResult(result=result, attempts=attempts, fallback_level=name)
-            except Exception as exc:  # noqa: BLE001 - fallback must preserve all step failures.
-                attempts.append(FallbackAttempt(name=name, status="failed", error=str(exc)))
+        for level, (name, step) in enumerate(self.steps):
+            with traced_span(
+                "tool.fallback.attempt",
+                kind="TOOL",
+                attributes={"omni.fallback.name": name, "omni.fallback.level": level},
+            ) as span:
+                try:
+                    result = step(payload)
+                    if inspect.isawaitable(result):
+                        result = await result
+                    if not isinstance(result, dict):
+                        raise TypeError(
+                            f"fallback step {name} returned {type(result).__name__}, expected dict"
+                        )
+                    attempts.append(FallbackAttempt(name=name, status="ok"))
+                    span.set_attribute("omni.fallback.status", "ok")
+                    return FallbackResult(result=result, attempts=attempts, fallback_level=name)
+                except Exception as exc:  # noqa: BLE001 - fallback records and continues.
+                    from opentelemetry.trace import Status, StatusCode
+
+                    span.set_attribute("omni.fallback.status", "failed")
+                    span.set_attribute("error.type", type(exc).__name__)
+                    span.set_status(Status(StatusCode.ERROR, str(exc)[:256]))
+                    attempts.append(FallbackAttempt(name=name, status="failed", error=str(exc)))
 
         if self.graceful_response is not None:
-            attempts.append(FallbackAttempt(name="graceful_response", status="ok"))
-            return FallbackResult(
-                result=dict(self.graceful_response),
-                attempts=attempts,
-                fallback_level="graceful_response",
-            )
+            with traced_span(
+                "tool.fallback.graceful",
+                kind="TOOL",
+                attributes={"omni.fallback.level": len(self.steps)},
+            ):
+                attempts.append(FallbackAttempt(name="graceful_response", status="ok"))
+                return FallbackResult(
+                    result=dict(self.graceful_response),
+                    attempts=attempts,
+                    fallback_level="graceful_response",
+                )
 
         raise FallbackExhausted("; ".join(f"{item.name}: {item.error}" for item in attempts))

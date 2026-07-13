@@ -1,0 +1,24 @@
+groups:
+  - name: omnisupport-week12
+    rules:
+      - alert: CopilotAvailabilityFastBurn
+        expr: copilot_failed_ratio_1h > (14.4 * 0.005)
+        for: 5m
+        labels: {severity: P1}
+        annotations:
+          summary: "Copilot availability budget will burn within six hours"
+          runbook: "runbooks/week12-observability.md#availability-fast-burn"
+      - alert: CopilotAvailabilitySlowBurn
+        expr: copilot_failed_ratio_6h > (6 * 0.005)
+        for: 1h
+        labels: {severity: P2}
+        annotations:
+          summary: "Copilot availability budget is degrading"
+          runbook: "runbooks/week12-observability.md#availability-slow-burn"
+      - alert: CopilotPIILeak
+        expr: increase(copilot_pii_leak_total[1m]) > 0
+        for: 1m
+        labels: {severity: P0}
+        annotations:
+          summary: "PII leak redline triggered"
+          runbook: "runbooks/week12-observability.md#pii-redline"

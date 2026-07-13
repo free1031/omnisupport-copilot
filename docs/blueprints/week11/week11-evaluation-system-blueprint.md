@@ -2,6 +2,13 @@
 
 Week11 builds the quality control plane after Week10 controlled actions.
 
+![Week11 code study route](../../assets/week11/week11-code-study-route.png)
+
+Use this student-facing route map before reading the file map below. It orders
+the Week11 code by the actual study path: RAG output shape, eval contracts,
+typed models, metrics, runner orchestration, regression gate, calibration /
+experiment helpers, and release governance binding.
+
 ```text
 Week08 RAG response / Week10 action output
   -> evals/sets/rag_qa_golden_v2_3_0.jsonl
@@ -135,4 +142,3 @@ Not included in Week11 Student Core:
 - Full canary rollout controller.
 
 Those are production expansions after students understand the control loop.
-

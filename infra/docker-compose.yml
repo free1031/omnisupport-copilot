@@ -92,8 +92,8 @@ services:
   # ─────────────────────────────────────────────────────────────────────────────
   rag_api:
     build:
-      context: ../services/rag_api
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/rag_api/Dockerfile
     container_name: omni_rag_api
     restart: unless-stopped
     environment:
@@ -104,6 +104,11 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4318
       OTEL_SERVICE_NAME: rag_api
+      OTEL_PROJECT_NAME: ${OTEL_PROJECT_NAME:-omnisupport-copilot}
+      OTEL_ENVIRONMENT: ${OTEL_ENVIRONMENT:-dev}
+      OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1.0}
+      OTEL_CAPTURE_CONTENT: ${OTEL_CAPTURE_CONTENT:-false}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
       RELEASE_ID: ${RELEASE_ID:-dev-local}
     ports:
       - "8000:8000"
@@ -112,10 +117,13 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      otel_collector:
+        condition: service_started
     networks:
       - omni_net
     volumes:
       - ../services/rag_api:/app
+      - ../observability:/app/observability:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -127,14 +135,19 @@ services:
   # ─────────────────────────────────────────────────────────────────────────────
   tool_api:
     build:
-      context: ../services/tool_api
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/tool_api/Dockerfile
     container_name: omni_tool_api
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omnipass}@postgres:5432/${POSTGRES_DB:-omnisupport}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4318
       OTEL_SERVICE_NAME: tool_api
+      OTEL_PROJECT_NAME: ${OTEL_PROJECT_NAME:-omnisupport-copilot}
+      OTEL_ENVIRONMENT: ${OTEL_ENVIRONMENT:-dev}
+      OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1.0}
+      OTEL_CAPTURE_CONTENT: ${OTEL_CAPTURE_CONTENT:-false}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
       RELEASE_ID: ${RELEASE_ID:-dev-local}
       METRIC_REGISTRY_PATH: /workspace/analytics/metric_registry_v1.yml
       SKILL_REGISTRY_PATH: /workspace/skills
@@ -143,10 +156,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      otel_collector:
+        condition: service_started
     networks:
       - omni_net
     volumes:
       - ../services/tool_api:/app
+      - ../observability:/app/observability:ro
       - ../analytics:/workspace/analytics:ro
       - ../contracts:/workspace/contracts:ro
       - ../skills:/workspace/skills:ro
@@ -242,7 +258,7 @@ services:
   # 7. OpenTelemetry Collector — 统一 trace / metric / log 采集
   # ─────────────────────────────────────────────────────────────────────────────
   otel_collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.149.0
     container_name: omni_otel_collector
     restart: unless-stopped
     command: ["--config=/etc/otel/config.yaml"]
@@ -254,25 +270,33 @@ services:
       - ../observability/otel/config.yaml:/etc/otel/config.yaml:ro
     networks:
       - omni_net
+    depends_on:
+      phoenix:
+        condition: service_healthy
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 8. Phoenix (Arize) — AI 请求可观测 + bad case replay
   # ─────────────────────────────────────────────────────────────────────────────
   phoenix:
-    image: arizephoenix/phoenix:latest
+    image: arizephoenix/phoenix:version-14.2.1
     container_name: omni_phoenix
     restart: unless-stopped
     environment:
       PHOENIX_PORT: 6006
       PHOENIX_GRPC_PORT: 4317
+      PHOENIX_WORKING_DIR: /data
     ports:
       - "6006:6006"
     volumes:
       - phoenix_data:/data
     networks:
       - omni_net
-    depends_on:
-      - otel_collector
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006/healthz', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 9. Ticket Simulator — 工单模拟器 / seed loader
@@ -354,6 +378,14 @@ services:
       WEEK07_PARSER: ${WEEK07_PARSER:-auto}
       WEEK07_CHUNK_STRATEGY_VERSION: ${WEEK07_CHUNK_STRATEGY_VERSION:-section_aware_v1}
       WEEK07_PARSE_DRY_RUN: ${WEEK07_PARSE_DRY_RUN:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4318
+      OTEL_SERVICE_NAME: week12_devbox
+      OTEL_PROJECT_NAME: ${OTEL_PROJECT_NAME:-omnisupport-copilot}
+      OTEL_ENVIRONMENT: ${OTEL_ENVIRONMENT:-dev}
+      OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1.0}
+      OTEL_CAPTURE_CONTENT: ${OTEL_CAPTURE_CONTENT:-false}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      PHOENIX_BASE_URL: http://phoenix:6006
     volumes:
       - ..:/workspace
     networks:

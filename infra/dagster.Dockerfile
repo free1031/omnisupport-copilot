@@ -29,6 +29,10 @@ COPY data ./data
 COPY analytics ./analytics
 COPY pipelines ./pipelines
 COPY services ./services
+COPY observability ./observability
+COPY agent ./agent
+COPY tools ./tools
+COPY evals ./evals
 
 # 创建 Dagster 运行目录
 RUN mkdir -p /opt/dagster/app /opt/dagster/dagster_home

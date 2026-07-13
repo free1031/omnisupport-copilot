@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://omni:omnipass@localhost:5432/omnisupport"
     otel_service_name: str = "tool_api"
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
+    otel_enabled: bool = True
+    otel_project_name: str = "omnisupport-copilot"
+    otel_environment: str = "dev"
+    otel_sample_ratio: float = 1.0
+    otel_capture_content: bool = False
     release_id: str = "dev-local"
     metric_registry_path: str = "/workspace/analytics/metric_registry_v1.yml"
     skill_registry_path: str = "/workspace/skills"

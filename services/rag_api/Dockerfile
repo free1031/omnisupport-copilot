@@ -8,11 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Python 依赖
-COPY requirements.txt .
+COPY services/rag_api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 源码
-COPY app/ ./app/
+COPY services/rag_api/app/ ./app/
+COPY observability/ ./observability/
 
 EXPOSE 8000
 

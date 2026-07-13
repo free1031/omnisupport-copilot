@@ -36,7 +36,7 @@ async def write_rag_audit_log(
     index_release_id: str,
     prompt_release_id: str,
     latency_ms: float,
-) -> None:
+) -> bool:
     try:
         await conn.execute(
             """
@@ -65,5 +65,7 @@ async def write_rag_audit_log(
             prompt_release_id,
             latency_ms,
         )
+        return True
     except Exception as exc:
         logger.warning("RAG audit log write failed (non-fatal): %s", exc)
+        return False

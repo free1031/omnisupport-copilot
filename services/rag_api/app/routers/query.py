@@ -5,21 +5,18 @@
         → Claude generate → 证据引用 → 审计日志 → 响应
 """
 
-import uuid
 import logging
-from typing import AsyncGenerator
+import uuid
 
 import asyncpg
-from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import StreamingResponse
-from opentelemetry import trace
+from fastapi import APIRouter, Request
 
-from app.models.rag_models import QueryRequest, QueryResponse, RetrievedChunk, EvidenceAnchor
 from app.config import settings
+from app.models.rag_models import EvidenceAnchor, QueryRequest, QueryResponse, RetrievedChunk
+from observability.runtime import current_trace_id, hash_text, traced_span
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["rag"])
-tracer = trace.get_tracer(__name__)
 
 # ── DB 连接池（懒初始化）─────────────────────────────────────────────────────
 
@@ -53,29 +50,41 @@ async def query_knowledge(
     request: QueryRequest,
     http_request: Request,
 ) -> QueryResponse:
-    trace_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
+    request_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
+    trace_id = current_trace_id() or request_id
 
-    with tracer.start_as_current_span("rag.query") as span:
-        span.set_attribute("omni.query_length", len(request.query))
+    with traced_span("rag.query", kind="CHAIN") as span:
+        trace_id = current_trace_id() or trace_id
+        span.set_attribute("omni.request_id", request_id)
+        span.set_attribute("omni.query.sha256", hash_text(request.query))
+        span.set_attribute("omni.query.length", len(request.query))
         span.set_attribute("omni.product_line", request.product_line or "any")
         span.set_attribute("omni.trace_id", trace_id)
         span.set_attribute("omni.release_id", settings.release_id)
 
         # ── 检索 ─────────────────────────────────────────────────────────────
-        with tracer.start_as_current_span("rag.retrieval"):
+        with traced_span("rag.retrieve.hybrid", kind="RETRIEVER") as retrieval_span:
             raw_chunks = await _do_retrieval(request, trace_id)
+            retrieval_span.set_attribute("omni.retrieval.result_count", len(raw_chunks))
 
         # ── 生成 ─────────────────────────────────────────────────────────────
-        with tracer.start_as_current_span("rag.generation"):
+        with traced_span(
+            "llm.generate",
+            kind="LLM",
+            attributes={"llm.model_name": settings.llm_model},
+        ) as generation_span:
             from app.generator import generate_answer
             answer, citations, confidence = await generate_answer(
                 query=request.query,
                 chunks=raw_chunks,
                 trace_id=trace_id,
             )
+            generation_span.set_attribute("omni.evidence_count", len(citations))
+            generation_span.set_attribute("omni.answer.confidence", confidence)
 
         # ── 审计日志 ─────────────────────────────────────────────────────────
-        await _write_audit_log(trace_id, request, len(raw_chunks), confidence)
+        with traced_span("rag.audit.persist", kind="TOOL"):
+            await _write_audit_log(trace_id, request, len(raw_chunks), confidence)
 
         # ── 构建响应 ──────────────────────────────────────────────────────────
         retrieved_chunks = _build_response_chunks(raw_chunks)

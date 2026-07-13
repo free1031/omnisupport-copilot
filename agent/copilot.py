@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import inspect
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 import jsonschema
 
 from agent.hitl import HITLCheckpointStore, HITLPolicy
 from agent.lineage import ActionLineageEvent, build_action_lineage_event
+from observability.runtime import current_trace_id, hash_text, traced_span
 from tools.fallback import FallbackChain
 from tools.idempotency import (
     IdempotencyConflict,
@@ -22,7 +24,6 @@ from tools.idempotency import (
     derive_idempotency_key,
 )
 from tools.registry import ToolContractRegistry
-
 
 ToolExecutor = Callable[[dict[str, Any]], Any]
 
@@ -53,41 +54,74 @@ class ControlledAgent:
     ) -> dict[str, Any]:
         contract = self.registry.get(tool_name)
         normalized = dict(payload)
-        normalized.setdefault("trace_id", f"trace_{uuid.uuid4().hex[:16]}")
+        normalized.setdefault("trace_id", current_trace_id() or f"trace_{uuid.uuid4().hex[:16]}")
 
-        jsonschema.validate(normalized, contract.payload["input_schema"])
+        with traced_span(
+            "agent.invoke",
+            kind="AGENT",
+            attributes={
+                "agent.name": "omnisupport.controlled_agent",
+                "tool.name": tool_name,
+                "omni.actor.role": actor_role,
+                "omni.payload.sha256": hash_text(str(sorted(normalized.items()))),
+                "omni.release_id": self.release_id,
+            },
+        ) as root_span:
+            with traced_span(
+                "tool.contract.validate",
+                kind="CHAIN",
+                attributes={"tool.name": tool_name, "tool.version": contract.version},
+            ):
+                jsonschema.validate(normalized, contract.payload["input_schema"])
 
-        if actor_role not in contract.allowed_roles:
-            return self._denied(contract, normalized, "PERMISSION_DENIED")
+            with traced_span(
+                "agent.permission.evaluate",
+                kind="CHAIN",
+                attributes={"omni.actor.role": actor_role},
+            ) as permission_span:
+                allowed = actor_role in contract.allowed_roles
+                permission_span.set_attribute("omni.permission.allowed", allowed)
+            if not allowed:
+                root_span.set_attribute("omni.business_status", "permission_denied")
+                return self._denied(contract, normalized, "PERMISSION_DENIED")
 
-        hitl_eval = self.hitl_policy.evaluate(contract.payload, normalized)
-        if hitl_eval.required:
-            approval = self.hitl_store.create(
-                trace_id=normalized["trace_id"],
-                tool_name=tool_name,
-                action=hitl_eval.action or "require_approval",
-                payload=normalized,
-                reason_codes=hitl_eval.reason_codes,
-            )
-            event = self._record_lineage(
-                contract=contract.payload,
-                payload=normalized,
-                status="awaiting_approval",
-                approval_id=approval.approval_id,
-            )
-            return {
-                "ticket_id": normalized.get("ticket_id"),
-                "operation": normalized.get("operation"),
-                "status": "awaiting_approval",
-                "approval_id": approval.approval_id,
-                "hitl_required": True,
-                "reason_codes": approval.reason_codes,
-                "trace_id": normalized["trace_id"],
-                "lineage_event_id": event.event_id,
-                "release_id": self.release_id,
-            }
+            with traced_span("hitl.evaluate", kind="CHAIN") as hitl_span:
+                hitl_eval = self.hitl_policy.evaluate(contract.payload, normalized)
+                hitl_span.set_attribute("omni.hitl.required", hitl_eval.required)
+                hitl_span.set_attribute("omni.hitl.action", hitl_eval.action or "none")
+                hitl_span.set_attribute("omni.hitl.reason_codes", hitl_eval.reason_codes)
+            if hitl_eval.required:
+                with traced_span("hitl.checkpoint.create", kind="TOOL"):
+                    approval = self.hitl_store.create(
+                        trace_id=normalized["trace_id"],
+                        tool_name=tool_name,
+                        action=hitl_eval.action or "require_approval",
+                        payload=normalized,
+                        reason_codes=hitl_eval.reason_codes,
+                    )
+                event = self._record_lineage(
+                    contract=contract.payload,
+                    payload=normalized,
+                    status="awaiting_approval",
+                    approval_id=approval.approval_id,
+                )
+                root_span.set_attribute("omni.business_status", "awaiting_approval")
+                root_span.set_attribute("omni.approval_id", approval.approval_id)
+                return {
+                    "ticket_id": normalized.get("ticket_id"),
+                    "operation": normalized.get("operation"),
+                    "status": "awaiting_approval",
+                    "approval_id": approval.approval_id,
+                    "hitl_required": True,
+                    "reason_codes": approval.reason_codes,
+                    "trace_id": normalized["trace_id"],
+                    "lineage_event_id": event.event_id,
+                    "release_id": self.release_id,
+                }
 
-        return await self._execute(contract.payload, normalized, executor=executor)
+            result = await self._execute(contract.payload, normalized, executor=executor)
+            root_span.set_attribute("omni.business_status", result.get("status", "unknown"))
+            return result
 
     async def resume_approved(
         self,
@@ -97,23 +131,46 @@ class ControlledAgent:
     ) -> dict[str, Any]:
         approval = self.hitl_store.get(approval_id)
         contract = self.registry.get(approval.tool_name)
-        if approval.status != "approved":
-            event = self._record_lineage(
-                contract=contract.payload,
-                payload=approval.payload,
-                status="denied",
+        created_at = datetime.fromisoformat(approval.created_at)
+        decided_at = datetime.fromisoformat(approval.decided_at) if approval.decided_at else datetime.now(timezone.utc)
+        waited_ms = max((decided_at - created_at).total_seconds() * 1000, 0.0)
+        with traced_span(
+            "hitl.wait",
+            kind="CHAIN",
+            attributes={
+                "omni.approval_id": approval_id,
+                "omni.hitl.waited_ms": round(waited_ms, 2),
+                "omni.hitl.status": approval.status,
+            },
+        ):
+            pass
+        with traced_span(
+            "hitl.resume",
+            kind="AGENT",
+            attributes={"omni.approval_id": approval_id, "omni.hitl.status": approval.status},
+        ):
+            if approval.status != "approved":
+                event = self._record_lineage(
+                    contract=contract.payload,
+                    payload=approval.payload,
+                    status="denied",
+                    approval_id=approval_id,
+                )
+                return {
+                    "ticket_id": approval.payload.get("ticket_id"),
+                    "operation": approval.payload.get("operation"),
+                    "status": "denied",
+                    "approval_id": approval_id,
+                    "trace_id": approval.trace_id,
+                    "lineage_event_id": event.event_id,
+                    "release_id": self.release_id,
+                }
+            return await self._execute(
+                contract.payload,
+                approval.payload,
+                executor=executor,
                 approval_id=approval_id,
             )
-            return {
-                "ticket_id": approval.payload.get("ticket_id"),
-                "operation": approval.payload.get("operation"),
-                "status": "denied",
-                "approval_id": approval_id,
-                "trace_id": approval.trace_id,
-                "lineage_event_id": event.event_id,
-                "release_id": self.release_id,
-            }
-        return await self._execute(contract.payload, approval.payload, executor=executor, approval_id=approval_id)
 
     async def _execute(
         self,
@@ -123,19 +180,33 @@ class ControlledAgent:
         executor: ToolExecutor | FallbackChain | None,
         approval_id: str | None = None,
     ) -> dict[str, Any]:
-        idem_key = derive_idempotency_key(contract, payload)
-        if idem_key:
-            try:
-                cached = self.idempotency_store.get(contract["name"], idem_key, payload)
-            except IdempotencyConflict:
-                return self._denied(contract, payload, "IDEMPOTENCY_CONFLICT")
-            if cached is not None:
-                cached_result = dict(cached.result)
-                cached_result["status"] = "cached"
-                cached_result["cached_from"] = cached.created_at
-                return cached_result
+        with traced_span("tool.idempotency.check", kind="CHAIN") as idem_span:
+            idem_key = derive_idempotency_key(contract, payload)
+            idem_span.set_attribute("omni.idempotency.enabled", bool(idem_key))
+            if idem_key:
+                idem_span.set_attribute("omni.idempotency.key_hash", hash_text(idem_key))
+                try:
+                    cached = self.idempotency_store.get(contract["name"], idem_key, payload)
+                except IdempotencyConflict:
+                    idem_span.set_attribute("omni.idempotency.status", "conflict")
+                    return self._denied(contract, payload, "IDEMPOTENCY_CONFLICT")
+                if cached is not None:
+                    idem_span.set_attribute("omni.idempotency.status", "cache_hit")
+                    cached_result = dict(cached.result)
+                    cached_result["status"] = "cached"
+                    cached_result["cached_from"] = cached.created_at
+                    return cached_result
+                idem_span.set_attribute("omni.idempotency.status", "cache_miss")
 
-        result = await self._call_executor(contract, payload, executor)
+        with traced_span(
+            f"tool.execute.{contract['name']}",
+            kind="TOOL",
+            attributes={"tool.name": contract["name"], "tool.version": contract["version"]},
+        ) as execute_span:
+            result = await self._call_executor(contract, payload, executor)
+            execute_span.set_attribute("omni.tool.result_status", result.get("status", "completed"))
+            if "fallback_level" in result:
+                execute_span.set_attribute("omni.fallback.level", result["fallback_level"])
         result.setdefault("status", "completed")
         result.setdefault("trace_id", payload["trace_id"])
         result.setdefault("release_id", self.release_id)
@@ -207,15 +278,21 @@ class ControlledAgent:
         approval_id: str | None = None,
         output_ref: str | None = None,
     ) -> ActionLineageEvent:
-        event = build_action_lineage_event(
-            trace_id=payload["trace_id"],
-            tool_name=contract["name"],
-            tool_version=contract["version"],
-            status=status,
-            payload=payload,
-            actor_id=payload.get("actor_id"),
-            approval_id=approval_id,
-            output_ref=output_ref,
-        )
-        self.lineage_events.append(event)
-        return event
+        with traced_span(
+            "agent.lineage.persist",
+            kind="TOOL",
+            attributes={"tool.name": contract["name"], "omni.action.status": status},
+        ) as lineage_span:
+            event = build_action_lineage_event(
+                trace_id=payload["trace_id"],
+                tool_name=contract["name"],
+                tool_version=contract["version"],
+                status=status,
+                payload=payload,
+                actor_id=payload.get("actor_id"),
+                approval_id=approval_id,
+                output_ref=output_ref,
+            )
+            self.lineage_events.append(event)
+            lineage_span.set_attribute("omni.lineage.event_id", event.event_id)
+            return event

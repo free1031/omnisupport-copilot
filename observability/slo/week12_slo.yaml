@@ -1,0 +1,16 @@
+version: week12-v1
+window_minutes: 60
+objectives:
+  availability:
+    target: 0.995
+  latency_p99_ms:
+    target: 3000
+  citation_coverage:
+    target: 0.95
+  cost_per_query_usd:
+    target: 0.02
+  pii_leak_count:
+    target: 0
+burn_rate:
+  fast_threshold: 14.4
+  slow_threshold: 6.0

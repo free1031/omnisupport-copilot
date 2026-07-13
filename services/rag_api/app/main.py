@@ -4,23 +4,24 @@ Week01 骨架：提供 health check 和 /query 基础端点。
 Week08 起逐步接入真实检索与生成链路。
 """
 
-from contextlib import asynccontextmanager
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.observability import setup_telemetry
-from app.routers import health, query, admin, rag
+from app.observability import force_flush, instrument_fastapi_app, setup_telemetry
+from app.routers import admin, health, query, rag
+from observability.runtime import current_trace_id
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """启动与关闭钩子"""
-    setup_telemetry(service_name=settings.otel_service_name)
     yield
+    force_flush()
 
 
 app = FastAPI(
@@ -31,6 +32,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+setup_telemetry(service_name=settings.otel_service_name)
+instrument_fastapi_app(app)
 
 # CORS（开发环境开放，生产环境限制 origin）
 app.add_middleware(
@@ -48,6 +52,9 @@ async def add_request_id(request: Request, call_next):
     request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
+    trace_id = current_trace_id()
+    if trace_id:
+        response.headers["X-Trace-ID"] = trace_id
     return response
 
 

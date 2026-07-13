@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "omni://contracts/observability/slo_report/v1",
+  "title": "Week12 SLO Report",
+  "type": "object",
+  "required": ["policy_version", "window", "sli", "error_budget", "alerts"],
+  "properties": {
+    "policy_version": {"type": "string"},
+    "window": {
+      "type": "object",
+      "required": ["sample_count"],
+      "properties": {"sample_count": {"type": "integer", "minimum": 0}},
+      "additionalProperties": true
+    },
+    "sli": {"type": "object"},
+    "error_budget": {"type": "object"},
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "severity", "current", "target", "sample_trace_ids"],
+        "properties": {
+          "name": {"type": "string"},
+          "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+          "current": {},
+          "target": {},
+          "burn_rate": {"type": "number"},
+          "sample_trace_ids": {"type": "array", "items": {"type": "string"}},
+          "top_error_types": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

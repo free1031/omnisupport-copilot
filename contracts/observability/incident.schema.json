@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "omni://contracts/observability/incident/v1",
+  "title": "Week12 Incident",
+  "type": "object",
+  "required": [
+    "incident_id",
+    "severity",
+    "summary",
+    "detected_at",
+    "trace_id",
+    "root_cause",
+    "user_query",
+    "actual_bad_answer",
+    "expected_answer",
+    "expected_keywords",
+    "expected_evidence_ids"
+  ],
+  "properties": {
+    "incident_id": {"type": "string", "pattern": "^INC-[0-9]{8}-[0-9]{3,}$"},
+    "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+    "summary": {"type": "string", "minLength": 1},
+    "status": {"type": "string", "enum": ["triggered", "ack", "mitigated", "resolved"]},
+    "detected_at": {"type": "string", "format": "date-time"},
+    "trace_id": {"type": "string", "minLength": 1},
+    "trace_url": {"type": "string"},
+    "root_cause": {
+      "type": "object",
+      "required": ["layer", "category", "detail"],
+      "properties": {
+        "layer": {"type": "string"},
+        "category": {"type": "string"},
+        "detail": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "span_evidence": {"type": "array", "items": {"type": "object"}},
+    "user_query": {"type": "string", "minLength": 1},
+    "actual_bad_answer": {"type": "string"},
+    "expected_answer": {"type": "string", "minLength": 1},
+    "expected_keywords": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "expected_context_keywords": {"type": "array", "items": {"type": "string"}},
+    "expected_evidence_ids": {"type": "array", "items": {"type": "string"}},
+    "source_doc": {"type": "string"},
+    "doc_version": {"type": "string"},
+    "fix": {"type": "object"},
+    "action_items": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

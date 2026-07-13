@@ -8,10 +8,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from observability.runtime import current_trace_id, hash_text, traced_span
 
 router = APIRouter(tags=["ticket-tools"])
 
@@ -55,27 +56,35 @@ async def get_ticket_status(req: GetTicketRequest, http_request: Request):
     Week01 骨架：参数校验通过后返回占位数据。
     Week10 替换为真实数据库查询 + 权限校验。
     """
-    trace_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
-
-    # TODO(Week10): 权限校验 (allowed_roles: end_user 只能查自己的工单)
-    # TODO(Week10): 真实数据库查询
-
-    return {
-        "ticket_id": req.ticket_id,
-        "status": "open",                          # stub
-        "priority": "p3_medium",                   # stub
-        "category": "configuration",               # stub
-        "product_line": "northstar_workspace",     # stub
-        "assignee_id": None,
-        "sla_due_at": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": None,
-        "resolved_at": None,
-        "comments": [] if not req.include_comments else [],
-        "trace_id": trace_id,
-        "release_id": settings.release_id,
-        "_stub": True,  # Week10 删除
-    }
+    request_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
+    trace_id = current_trace_id() or request_id
+    with traced_span(
+        "tool.execute.get_ticket_status",
+        kind="TOOL",
+        attributes={
+            "tool.name": "get_ticket_status",
+            "tool.parameters": hash_text(req.model_dump_json()),
+            "omni.request_id": request_id,
+            "omni.release_id": settings.release_id,
+        },
+    ) as span:
+        span.set_attribute("omni.tool.result_code", "STUB_OK")
+        return {
+            "ticket_id": req.ticket_id,
+            "status": "open",                          # stub
+            "priority": "p3_medium",                   # stub
+            "category": "configuration",               # stub
+            "product_line": "northstar_workspace",     # stub
+            "assignee_id": None,
+            "sla_due_at": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": None,
+            "resolved_at": None,
+            "comments": [] if not req.include_comments else [],
+            "trace_id": trace_id,
+            "release_id": settings.release_id,
+            "_stub": True,  # Week10 删除
+        }
 
 
 @router.post("/create_ticket", summary="创建工单", status_code=201)
@@ -86,42 +95,45 @@ async def create_ticket(req: CreateTicketRequest, http_request: Request):
     Week01 骨架：幂等键检查框架 + HITL 触发判断逻辑 + 占位响应。
     Week10 替换为真实数据库写入。
     """
-    trace_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
+    request_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
+    trace_id = current_trace_id() or request_id
+    with traced_span(
+        "tool.execute.create_ticket",
+        kind="TOOL",
+        attributes={
+            "tool.name": "create_ticket",
+            "tool.parameters": hash_text(req.model_dump_json()),
+            "omni.request_id": request_id,
+            "omni.release_id": settings.release_id,
+        },
+    ) as span:
+        hitl_triggered = _should_trigger_hitl(req.priority, req.category)
+        span.set_attribute("omni.hitl.required", hitl_triggered)
+        span.set_attribute("omni.idempotency.present", bool(req.idempotency_key))
 
-    # ── HITL 触发判断（Week10 实际执行时触发 webhook）──────────────────────
-    hitl_triggered = _should_trigger_hitl(req.priority, req.category)
-
-    # ── 幂等键检查框架（Week10 查 DB）─────────────────────────────────────
-    if req.idempotency_key:
-        # TODO(Week10): 查询 DB 是否已存在相同 idempotency_key
-        pass
-
-    # ── 生成工单 ID（Week10 从 DB sequence 生成）──────────────────────────
-    now = datetime.now(timezone.utc)
-    ticket_id = f"TKT-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-
-    # ── 审计日志（Week10 写入 audit_log 表）───────────────────────────────
-    audit = AuditLog(
-        request_id=trace_id,
-        actor="anonymous",    # Week10: 从 JWT/session 提取
-        tool_name="create_ticket",
-        args_hash=str(hash(req.model_dump_json()))[:16],
-        result_code="CREATED",
-        hitl_triggered=hitl_triggered,
-        ts=now.isoformat(),
-    )
-
-    return {
-        "ticket_id": ticket_id,
-        "status": "open",
-        "sla_due_at": None,
-        "created_at": now.isoformat(),
-        "hitl_triggered": hitl_triggered,
-        "trace_id": trace_id,
-        "release_id": settings.release_id,
-        "_audit": audit.model_dump(),
-        "_stub": True,  # Week10 删除
-    }
+        now = datetime.now(timezone.utc)
+        ticket_id = f"TKT-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        audit = AuditLog(
+            request_id=request_id,
+            actor="anonymous",
+            tool_name="create_ticket",
+            args_hash=hash_text(req.model_dump_json()),
+            result_code="CREATED",
+            hitl_triggered=hitl_triggered,
+            ts=now.isoformat(),
+        )
+        span.set_attribute("omni.tool.result_code", "CREATED")
+        return {
+            "ticket_id": ticket_id,
+            "status": "open",
+            "sla_due_at": None,
+            "created_at": now.isoformat(),
+            "hitl_triggered": hitl_triggered,
+            "trace_id": trace_id,
+            "release_id": settings.release_id,
+            "_audit": audit.model_dump(),
+            "_stub": True,  # Week10 删除
+        }
 
 
 def _should_trigger_hitl(priority: str, category: str) -> bool:

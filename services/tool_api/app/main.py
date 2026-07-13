@@ -14,11 +14,19 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.routers import health, kpis, skills, tickets, tool_contracts
+from observability.runtime import (
+    TelemetryConfig,
+    configure_telemetry,
+    current_trace_id,
+    force_flush,
+    instrument_fastapi_app,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
+    force_flush()
 
 
 app = FastAPI(
@@ -27,6 +35,19 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+configure_telemetry(
+    TelemetryConfig(
+        service_name=settings.otel_service_name,
+        release_id=settings.release_id,
+        environment=settings.otel_environment,
+        endpoint=settings.otel_exporter_otlp_endpoint,
+        project_name=settings.otel_project_name,
+        enabled=settings.otel_enabled,
+        sample_ratio=settings.otel_sample_ratio,
+    )
+)
+instrument_fastapi_app(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,6 +63,9 @@ async def add_request_id(request: Request, call_next):
     request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
+    trace_id = current_trace_id()
+    if trace_id:
+        response.headers["X-Trace-ID"] = trace_id
     return response
 
 

@@ -1,0 +1,36 @@
+{
+  "incident_id": "INC-20260713-001",
+  "severity": "P2",
+  "summary": "Workspace SSO answer returned an unrelated citation",
+  "status": "mitigated",
+  "detected_at": "2026-07-13T12:00:00+00:00",
+  "trace_id": "11111111111111111111111111111111",
+  "trace_url": "http://localhost:6006/projects/omnisupport-copilot/traces/11111111111111111111111111111111",
+  "root_cause": {
+    "layer": "generation",
+    "category": "citation_mismatch",
+    "detail": "The answer was generated without the retrieved SSO evidence anchor."
+  },
+  "span_evidence": [
+    {"name": "rag.retrieve.hybrid", "status": "OK", "latency_ms": 180, "evidence_count": 1},
+    {"name": "llm.generate", "status": "OK", "latency_ms": 820, "evidence_count": 0}
+  ],
+  "user_query": "Northstar Workspace SSO 登录失败应该先检查什么？",
+  "actual_bad_answer": "请先重启 Edge Gateway，并升级固件。",
+  "expected_answer": "先检查 IdP metadata、ACS URL、用户邮箱与角色映射，并使用测试用户验证登录链路。",
+  "expected_keywords": ["IdP metadata", "ACS URL", "角色映射", "测试用户"],
+  "expected_context_keywords": ["SSO", "IdP metadata", "ACS URL", "角色映射"],
+  "expected_evidence_ids": ["ev-workspace-sso-001"],
+  "source_doc": "workspace-helpcenter-sso",
+  "doc_version": "2026.04.2",
+  "fix": {
+    "change": "Require citation evidence before returning a grounded answer.",
+    "release_id": "prompt-v3.2.1",
+    "verification": "Add incident sample and pass Week11 regression gate."
+  },
+  "action_items": [
+    "Keep evidence_count on llm.generate spans",
+    "Add citation mismatch case to regression assets",
+    "Update the Week12 on-call runbook"
+  ]
+}

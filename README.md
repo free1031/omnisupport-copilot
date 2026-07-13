@@ -211,7 +211,7 @@ omnisupport-copilot/
 │   ├── seed_manifests/         # 种子数据清单
 │   ├── synthetic_generators/   # 合成工单/音频生成器
 │   └── canonization/           # 规范化后的课程资产
-├── observability/              # OTel Collector 配置 + Phoenix + dashboards
+├── observability/              # Week12 OTel runtime + Phoenix + SLO/alerts + bad-case loop
 ├── evals/                      # 评测集 + eval harness + 回归报告
 ├── tests/
 │   ├── contract/               # JSON Schema 契约测试
@@ -237,7 +237,10 @@ omnisupport-copilot/
 | W09 | 🔄 | Agent Skill Pack、只读 Skill Registry、OpenAI/MCP 导出、release manifest 绑定 |
 | W10 | 🔄 | Tool Contract Registry、受控写动作、HITL checkpoint、fallback、action lineage |
 | W11 | 🔄 | Golden set、RAGAS 风格 6 指标、Judge 校准、回归门禁、业务 SLO |
-| W12-15 | 📅 | Tracing、GraphRAG、治理、Capstone |
+| W12 | 🔄 | OTel/OpenInference、RAG/Tool/HITL spans、Phoenix、SLO 告警、bad-case 回归闭环 |
+| W13-15 | 📅 | GraphRAG、治理、Capstone |
+
+Week12 可观测闭环入口见 [runbooks/week12-observability.md](runbooks/week12-observability.md)。
 
 Week11 评测体系入口见 [runbooks/week11-evaluation-system.md](runbooks/week11-evaluation-system.md)。
 

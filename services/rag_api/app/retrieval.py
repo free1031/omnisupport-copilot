@@ -10,11 +10,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Sequence
+
+from observability.runtime import traced_span
 
 logger = logging.getLogger(__name__)
 
@@ -406,40 +407,77 @@ async def hybrid_retrieve(
     """
     执行完整混合检索：vector + FTS → RRF → rerank → filter
     """
-    # 两路并行检索
-    vec_results, fts_results = await asyncio.gather(
-        vector_search(
-            conn,
-            query,
-            top_k * 2,
-            product_line=product_line,
-            index_release_id=index_release_id,
-            data_release_id=data_release_id,
-            visibility_scope=visibility_scope,
-            entitlement_tier=entitlement_tier,
-            status=status,
-            quality_status=quality_status,
-        ),
-        fts_search(
-            conn,
-            query,
-            top_k * 2,
-            product_line=product_line,
-            index_release_id=index_release_id,
-            data_release_id=data_release_id,
-            visibility_scope=visibility_scope,
-            entitlement_tier=entitlement_tier,
-            status=status,
-            quality_status=quality_status,
-        ),
-    )
+    async def run_vector_search():
+        with traced_span(
+            "rag.retrieve.vector",
+            kind="RETRIEVER",
+            attributes={"omni.retrieval.top_k": top_k * 2},
+        ) as span:
+            results = await vector_search(
+                conn,
+                query,
+                top_k * 2,
+                product_line=product_line,
+                index_release_id=index_release_id,
+                data_release_id=data_release_id,
+                visibility_scope=visibility_scope,
+                entitlement_tier=entitlement_tier,
+                status=status,
+                quality_status=quality_status,
+            )
+            span.set_attribute("omni.retrieval.vector_hits", len(results))
+            return results
+
+    async def run_fts_search():
+        with traced_span(
+            "rag.retrieve.lexical",
+            kind="RETRIEVER",
+            attributes={"omni.retrieval.top_k": top_k * 2},
+        ) as span:
+            results = await fts_search(
+                conn,
+                query,
+                top_k * 2,
+                product_line=product_line,
+                index_release_id=index_release_id,
+                data_release_id=data_release_id,
+                visibility_scope=visibility_scope,
+                entitlement_tier=entitlement_tier,
+                status=status,
+                quality_status=quality_status,
+            )
+            span.set_attribute("omni.retrieval.lexical_hits", len(results))
+            return results
+
+    # asyncpg does not allow concurrent operations on one connection. The caller
+    # provides one acquired connection, so run both legs sequentially; production
+    # fan-out can acquire two connections before using asyncio.gather.
+    vec_results = await run_vector_search()
+    fts_results = await run_fts_search()
 
     # RRF 融合
-    merged = reciprocal_rank_fusion(vec_results, fts_results)
+    with traced_span(
+        "rag.retrieve.rrf",
+        kind="CHAIN",
+        attributes={"omni.retrieval.rrf_k": 60},
+    ) as fusion_span:
+        merged = reciprocal_rank_fusion(vec_results, fts_results)
+        fusion_span.set_attribute("omni.retrieval.fused_count", len(merged))
 
     # Cross-Encoder 精排
     if rerank and merged:
-        merged = _reranker.rerank(query, merged[:top_k * 2])
+        before_count = len(merged[: top_k * 2])
+        with traced_span(
+            "rag.rerank.cross",
+            kind="RERANKER",
+            attributes={
+                "reranker.model_name": _reranker._model_name,
+                "omni.rerank.input_count": before_count,
+            },
+        ) as rerank_span:
+            merged = _reranker.rerank(query, merged[: top_k * 2])
+            rerank_span.set_attribute("omni.rerank.output_count", len(merged))
+            rerank_span.set_attribute("omni.rerank.dropped_count", before_count - len(merged))
 
     # 取 top_k + 最低分过滤
     results = merged[:top_k]

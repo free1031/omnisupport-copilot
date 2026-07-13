@@ -2,6 +2,10 @@
 
 Week11 把 Copilot 质量从“感觉还行”变成可量化、可门禁、可监管的工程指标。
 
+![Week11 code study route](../docs/assets/week11/week11-code-study-route.png)
+
+先按这张学习路线图读代码：从上游 RAG 输出开始，依次看评测契约、模型加载、指标评分、runner 编排、回归门禁、校准实验和发布治理绑定。
+
 本周主线：
 
 - Dataset：评测集是资产，不是一次性测试用例。
@@ -170,4 +174,3 @@ Expected:
 | `REGRESSION GATE: FAIL` | 当前报告低于 baseline 或安全红线退化 | 先看失败 metric，再定位检索、生成、反例库哪层坏了 |
 | `trust_level=low` | judge 分数和人工金标准不一致 | 重写 judge prompt，补 calibration example，再重跑 |
 | 真实 RAG API 分数低 | 本地没有完整索引或证据数据 | 先跑 Week07/08 数据准备，或课堂先用离线 fixture |
-
