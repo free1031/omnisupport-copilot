@@ -31,12 +31,16 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 5
     retrieval_min_score: float = 0.6
     rerank_enabled: bool = True
+    graph_classifier_threshold: float = 0.70
+    graph_max_hops: int = 3
+    graph_default_visibility_scope: str = "internal"
 
     # ── 版本与发布 ────────────────────────────────────────────────────────────
     release_id: str = "dev-local"
     data_release_id: str = "data-v0.0.1"
     index_release_id: str = "index-v0.0.1"
     prompt_release_id: str = "prompt-v0.0.1"
+    graph_release_id: str = "graph-week13-dev-v1"
 
     # ── OTel ────────────────────────────────────────────────────────────────
     otel_service_name: str = "rag_api"

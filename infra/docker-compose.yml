@@ -110,6 +110,8 @@ services:
       OTEL_CAPTURE_CONTENT: ${OTEL_CAPTURE_CONTENT:-false}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       RELEASE_ID: ${RELEASE_ID:-dev-local}
+      GRAPH_RELEASE_ID: ${GRAPH_RELEASE_ID:-graph-week13-dev-v1}
+      PYTHONPATH: /app:/workspace
     ports:
       - "8000:8000"
     depends_on:
@@ -123,6 +125,7 @@ services:
       - omni_net
     volumes:
       - ../services/rag_api:/app
+      - ../services/graph:/workspace/services/graph:ro
       - ../observability:/app/observability:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -234,6 +237,8 @@ services:
       WEEK07_PARSER: ${WEEK07_PARSER:-auto}
       WEEK07_CHUNK_STRATEGY_VERSION: ${WEEK07_CHUNK_STRATEGY_VERSION:-section_aware_v1}
       WEEK07_PARSE_DRY_RUN: ${WEEK07_PARSE_DRY_RUN:-true}
+      WEEK13_GRAPH_RELEASE_ID: ${WEEK13_GRAPH_RELEASE_ID:-graph-week13-dev-v1}
+      WEEK13_GRAPH_SOURCE_PATH: ${WEEK13_GRAPH_SOURCE_PATH:-/workspace/data/week13/graph_source_chunks_v1.jsonl}
     ports:
       - "49152:3000"
     depends_on:
@@ -378,6 +383,8 @@ services:
       WEEK07_PARSER: ${WEEK07_PARSER:-auto}
       WEEK07_CHUNK_STRATEGY_VERSION: ${WEEK07_CHUNK_STRATEGY_VERSION:-section_aware_v1}
       WEEK07_PARSE_DRY_RUN: ${WEEK07_PARSE_DRY_RUN:-true}
+      WEEK13_GRAPH_RELEASE_ID: ${WEEK13_GRAPH_RELEASE_ID:-graph-week13-dev-v1}
+      WEEK13_GRAPH_SOURCE_PATH: ${WEEK13_GRAPH_SOURCE_PATH:-data/week13/graph_source_chunks_v1.jsonl}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4318
       OTEL_SERVICE_NAME: week12_devbox
       OTEL_PROJECT_NAME: ${OTEL_PROJECT_NAME:-omnisupport-copilot}

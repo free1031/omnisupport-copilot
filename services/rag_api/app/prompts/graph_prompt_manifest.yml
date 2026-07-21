@@ -1,0 +1,8 @@
+prompt_release_id: prompt-week13-graph-v1
+description: Week13 mode-specific graph augmentation prompts.
+created_at: "2026-07-20T00:00:00Z"
+templates:
+  graph_local: graph_local_v1.md
+  graph_global: graph_global_v1.md
+  graph_multihop: graph_multihop_v1.md
+  graph_drift: graph_drift_v1.md

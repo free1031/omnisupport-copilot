@@ -8,9 +8,11 @@ from fastapi import APIRouter, Request
 
 from app.audit import Timer, write_rag_audit_log
 from app.config import settings
+from app.context_pruning import prune_contexts
 from app.generator import generate_grounded_answer
 from app.models.rag_models import (
     Citation,
+    GraphRetrievalDebug,
     RagAnswerRequest,
     RagAnswerResponse,
     RetrievalContext,
@@ -19,6 +21,11 @@ from app.models.rag_models import (
 )
 from app.routers.query import _get_pool
 from observability.runtime import current_trace_id, hash_text, safe_preview, traced_span
+from services.graph.classifier import classify_query
+from services.graph.models import RouteDecision
+from services.graph.retrieval import GraphRetriever
+from services.graph.serialize import serialize_graph_context
+from services.graph.store import AsyncPostgresGraphStore
 
 router = APIRouter(tags=["week08-rag"])
 
@@ -31,6 +38,20 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
     index_release_id = payload.index_release_id or settings.index_release_id
     data_release_id = payload.data_release_id or settings.data_release_id
     prompt_release_id = payload.prompt_release_id or settings.prompt_release_id
+    graph_release_id = payload.graph_release_id or settings.graph_release_id
+    graph_visibility_scope = (
+        payload.visibility_scope or settings.graph_default_visibility_scope
+    )
+    requested_mode = payload.retrieval_mode
+    route_decision = (
+        classify_query(payload.question, threshold=settings.graph_classifier_threshold)
+        if requested_mode == "auto"
+        else RouteDecision(requested_mode, 1.0, ("explicit_request_mode",))
+    )
+    selected_mode = route_decision.mode
+    effective_mode = selected_mode
+    graph_result = None
+    graph_fallback_reason = None
     filters = {
         "product_line": payload.product_line,
         "visibility_scope": payload.visibility_scope,
@@ -39,6 +60,9 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
         "quality_status": payload.quality_status,
         "data_release_id": data_release_id,
         "index_release_id": index_release_id,
+        "graph_release_id": graph_release_id,
+        "retrieval_mode": requested_mode,
+        "graph_visibility_scope": graph_visibility_scope,
     }
 
     root_attributes = {
@@ -51,6 +75,8 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
         "omni.data_release_id": data_release_id,
         "omni.index_release_id": index_release_id,
         "omni.prompt_release_id": prompt_release_id,
+        "omni.graph_release_id": graph_release_id,
+        "omni.retrieval.requested_mode": requested_mode,
     }
     if settings.otel_capture_content:
         root_attributes["input.value"] = safe_preview(payload.question)
@@ -60,17 +86,21 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
         with traced_span(
             "rag.intent.route",
             kind="CHAIN",
-            attributes={"omni.route": "knowledge_rag", "omni.route.reason": "rag_answer"},
+            attributes={
+                "omni.route": selected_mode,
+                "omni.route.reason": ",".join(route_decision.reasons),
+                "omni.route.confidence": route_decision.confidence,
+            },
         ):
             pass
 
         raw_chunks = []
         pool = None
         with traced_span(
-            "rag.retrieve.hybrid",
+            "rag.retrieve.route",
             kind="RETRIEVER",
             attributes={
-                "omni.retrieval.strategy": "pgvector+postgres_fts+rrf",
+                "omni.retrieval.strategy": selected_mode,
                 "omni.retrieval.top_k": payload.top_k,
                 "omni.rerank.enabled": settings.rerank_enabled,
             },
@@ -78,31 +108,103 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
             try:
                 pool = await _get_pool()
                 async with pool.acquire() as conn:
-                    from app.retrieval import hybrid_retrieve
+                    if selected_mode.startswith("graph_"):
+                        with traced_span(
+                            "rag.retrieve.graph",
+                            kind="RETRIEVER",
+                            attributes={
+                                "omni.graph.mode": selected_mode,
+                                "omni.graph.release_id": graph_release_id,
+                                "omni.graph.max_hops": min(
+                                    payload.max_graph_hops, settings.graph_max_hops
+                                ),
+                            },
+                        ) as graph_span:
+                            try:
+                                graph_result = await GraphRetriever(
+                                    AsyncPostgresGraphStore(conn)
+                                ).retrieve(
+                                    payload.question,
+                                    mode=selected_mode,
+                                    graph_release_id=graph_release_id,
+                                    product_line=payload.product_line,
+                                    visibility_scope=graph_visibility_scope,
+                                    max_hops=min(payload.max_graph_hops, settings.graph_max_hops),
+                                    top_k=payload.top_k,
+                                    route_decision=route_decision,
+                                )
+                                raw_chunks = graph_result.chunks
+                                graph_span.set_attribute("omni.graph.path_count", len(graph_result.paths))
+                                graph_span.set_attribute(
+                                    "omni.graph.community_count", len(graph_result.communities)
+                                )
+                                graph_span.set_attribute(
+                                    "omni.graph.evidence_count", len(graph_result.chunks)
+                                )
+                                if not raw_chunks:
+                                    graph_fallback_reason = "graph_returned_no_evidence"
+                            except Exception as graph_exc:
+                                graph_fallback_reason = f"graph_runtime_error:{type(graph_exc).__name__}"
+                                graph_span.set_attribute("error.type", type(graph_exc).__name__)
+                                raw_chunks = []
 
-                    raw_chunks = await hybrid_retrieve(
-                        conn=conn,
-                        query=payload.question,
-                        top_k=payload.top_k,
-                        product_line=payload.product_line,
-                        index_release_id=index_release_id,
-                        data_release_id=data_release_id,
-                        visibility_scope=payload.visibility_scope,
-                        entitlement_tier=payload.entitlement_tier,
-                        status=payload.status,
-                        quality_status=payload.quality_status,
-                        rerank=settings.rerank_enabled,
-                    )
+                    if not selected_mode.startswith("graph_") or not raw_chunks:
+                        from app.retrieval import hybrid_retrieve
+
+                        with traced_span(
+                            "rag.retrieve.hybrid",
+                            kind="RETRIEVER",
+                            attributes={
+                                "omni.retrieval.strategy": "pgvector+postgres_fts+rrf",
+                                "omni.retrieval.fallback_from": (
+                                    selected_mode if selected_mode.startswith("graph_") else ""
+                                ),
+                            },
+                        ):
+                            raw_chunks = await hybrid_retrieve(
+                                conn=conn,
+                                query=payload.question,
+                                top_k=payload.top_k,
+                                product_line=payload.product_line,
+                                index_release_id=index_release_id,
+                                data_release_id=data_release_id,
+                                visibility_scope=payload.visibility_scope,
+                                entitlement_tier=payload.entitlement_tier,
+                                status=payload.status,
+                                quality_status=payload.quality_status,
+                                rerank=settings.rerank_enabled,
+                            )
+                        effective_mode = "hybrid"
             except Exception as exc:
                 retrieval_span.set_attribute("omni.business_status", "retrieval_degraded")
                 retrieval_span.set_attribute("error.type", type(exc).__name__)
                 raw_chunks = []
+                if selected_mode.startswith("graph_"):
+                    graph_fallback_reason = f"retrieval_runtime_error:{type(exc).__name__}"
+                    effective_mode = "hybrid"
             retrieval_span.set_attribute("omni.retrieval.result_count", len(raw_chunks))
+            retrieval_span.set_attribute("omni.retrieval.effective_mode", effective_mode)
+            retrieval_span.set_attribute(
+                "omni.retrieval.fallback_reason", graph_fallback_reason or ""
+            )
             retrieval_span.set_attribute(
                 "omni.retrieval.top_chunk_ids", [chunk.chunk_id for chunk in raw_chunks[:3]]
             )
 
-        citations = [_citation_from_chunk(chunk) for chunk in raw_chunks]
+        generation_chunks = prune_contexts(
+            raw_chunks,
+            max_chunks=5,
+            token_budget=2500,
+        ).chunks
+        citations = [_citation_from_chunk(chunk) for chunk in generation_chunks]
+        selected_evidence_ids = {chunk.evidence_id for chunk in generation_chunks}
+        graph_context = None
+        if graph_result is not None and effective_mode.startswith("graph_"):
+            graph_context = serialize_graph_context(
+                graph_result.paths,
+                graph_result.communities,
+                allowed_evidence_ids=selected_evidence_ids,
+            )
         with traced_span(
             "llm.generate",
             kind="LLM",
@@ -117,8 +219,10 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
         ) as generation_span:
             answer, confidence, abstain_reason = await generate_grounded_answer(
                 question=payload.question,
-                chunks=raw_chunks,
+                chunks=generation_chunks,
                 prompt_release_id=prompt_release_id,
+                graph_context=graph_context,
+                retrieval_mode=effective_mode,
             )
             generation_span.set_attribute("omni.answer.length", len(answer))
             generation_span.set_attribute("omni.answer.confidence", confidence)
@@ -137,9 +241,26 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
                 score=chunk.final_score,
                 citation=citation,
             )
-            for chunk, citation in zip(raw_chunks, citations)
+            for chunk, citation in zip(generation_chunks, citations)
         ]
-        debug = _debug_payload(raw_chunks, filters) if payload.include_debug else None
+        debug = (
+            _debug_payload(raw_chunks, filters, mode=effective_mode)
+            if payload.include_debug
+            else None
+        )
+        graph_debug = None
+        if payload.include_debug and requested_mode != "hybrid":
+            graph_debug = GraphRetrievalDebug(
+                requested_mode=requested_mode,
+                selected_mode=effective_mode,
+                graph_release_id=graph_release_id,
+                route_confidence=route_decision.confidence,
+                route_reasons=list(route_decision.reasons),
+                paths=[item.to_dict() for item in graph_result.paths] if graph_result else [],
+                communities=[item.to_dict() for item in graph_result.communities] if graph_result else [],
+                warnings=list(graph_result.warnings) if graph_result else [],
+                fallback_reason=graph_fallback_reason,
+            )
 
         audit_persisted = False
         with traced_span(
@@ -158,7 +279,7 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
                             actor_role=payload.actor_role,
                             filters=filters,
                             retrieved_evidence_ids=[c.evidence_id for c in citations],
-                            scores=[chunk.debug_scores() for chunk in raw_chunks],
+                            scores=[chunk.debug_scores() for chunk in generation_chunks],
                             answer=answer,
                             confidence=confidence,
                             abstain_reason=abstain_reason,
@@ -188,9 +309,12 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
             data_release_id=data_release_id,
             index_release_id=index_release_id,
             prompt_release_id=prompt_release_id,
+            graph_release_id=graph_release_id if requested_mode != "hybrid" else None,
+            retrieval_mode=effective_mode,
             trace_id=trace_id,
             retrieved_contexts=retrieved_contexts,
             retrieval_debug=debug,
+            graph_debug=graph_debug,
         )
 
 
@@ -212,10 +336,13 @@ def _citation_from_chunk(chunk) -> Citation:
     )
 
 
-def _debug_payload(chunks, filters: dict) -> RetrievalDebugPayload:
+def _debug_payload(chunks, filters: dict, *, mode: str) -> RetrievalDebugPayload:
     has_rerank = any(chunk.rerank_score is not None for chunk in chunks)
+    debug_mode = mode if mode.startswith("graph_") else (
+        "hybrid_rrf_rerank" if has_rerank else "hybrid_rrf"
+    )
     return RetrievalDebugPayload(
-        mode="hybrid_rrf_rerank" if has_rerank else "hybrid_rrf",
+        mode=debug_mode,
         rrf_k=60,
         rerank_enabled=settings.rerank_enabled,
         rerank_fallback=settings.rerank_enabled and not has_rerank,

@@ -17,6 +17,13 @@
     "index_release_id": { "type": ["string", "null"] },
     "data_release_id": { "type": ["string", "null"] },
     "prompt_release_id": { "type": ["string", "null"] },
+    "graph_release_id": { "type": ["string", "null"] },
+    "retrieval_mode": {
+      "type": "string",
+      "enum": ["hybrid", "auto", "graph_local", "graph_global", "graph_multihop", "graph_drift"],
+      "default": "hybrid"
+    },
+    "max_graph_hops": { "type": "integer", "minimum": 1, "maximum": 3, "default": 2 },
     "include_debug": { "type": "boolean", "default": false }
   }
 }

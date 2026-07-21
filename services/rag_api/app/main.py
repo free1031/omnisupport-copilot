@@ -20,8 +20,11 @@ from observability.runtime import current_trace_id
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """启动与关闭钩子"""
-    yield
-    force_flush()
+    try:
+        yield
+    finally:
+        await query.close_pool()
+        force_flush()
 
 
 app = FastAPI(

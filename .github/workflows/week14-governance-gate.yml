@@ -1,0 +1,83 @@
+name: Week14 Governance Gate
+
+on:
+  pull_request:
+    paths:
+      - "release/**"
+      - "rollout/**"
+      - "governance/**"
+      - "contracts/release/**"
+      - "data/lakefs/**"
+      - "infra/migrations/011_week14_governed_release.sql"
+      - "tests/contract/test_week14_governed_release_contracts.py"
+      - "tests/integration/test_week14_governed_release.py"
+      - ".github/workflows/week14-governance-gate.yml"
+
+jobs:
+  governance-gate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: omni
+          POSTGRES_PASSWORD: omnipass
+          POSTGRES_DB: omnisupport
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U omni -d omnisupport"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://omni:omnipass@localhost:5432/omnisupport
+      GIT_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint Week14 release control plane
+        run: >-
+          ruff check release rollout governance tools/impact_analysis.py
+          tests/contract/test_week14_governed_release_contracts.py
+          tests/integration/test_week14_governed_release.py
+
+      - name: Run Week14 contract and real PostgreSQL tests
+        run: >-
+          pytest tests/contract/test_week14_governed_release_contracts.py
+          tests/integration/test_week14_governed_release.py -v
+
+      - name: Generate and validate a candidate manifest
+        run: |
+          python -m release.generator \
+            --spec release/specs/week14_local.yaml \
+            --environment dev \
+            --created-by github-actions \
+            --git-sha "$GIT_SHA" \
+            --output-dir artifacts/releases
+          MANIFEST=$(ls artifacts/releases/*.json)
+          python -m tools.impact_analysis \
+            --candidate "$MANIFEST" \
+            --output artifacts/releases/impact-report.json
+          python -m rollout.canary \
+            --manifest "$MANIFEST" \
+            --observation tests/fixtures/week14/canary_5_percent_pass.json \
+            --output artifacts/releases/canary-5.json
+          python -m governance.openlineage \
+            --manifest "$MANIFEST" \
+            --output artifacts/releases/openlineage-release-event.json
+          python -m release.compliance.generator \
+            --manifest "$MANIFEST" \
+            --evidence artifacts/releases/impact-report.json \
+            --evidence evals/baselines/week11_baseline_metrics.json \
+            --evidence artifacts/releases/canary-5.json \
+            --output-dir artifacts/compliance

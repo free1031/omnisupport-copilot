@@ -30,6 +30,9 @@ COPY observability ./observability
 COPY agent ./agent
 COPY tools ./tools
 COPY evals ./evals
+COPY release ./release
+COPY rollout ./rollout
+COPY governance ./governance
 COPY tests ./tests
 
 CMD ["sh"]

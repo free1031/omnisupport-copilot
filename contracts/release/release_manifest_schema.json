@@ -41,6 +41,28 @@
       "type": ["string", "null"],
       "description": "Week09 Skill Pack 版本标识。为空表示该 release 尚未绑定 Skill Pack。"
     },
+    "graph_release_id": {
+      "type": ["string", "null"],
+      "description": "Week13 versioned graph derived asset. Null means this release routes only to vector/lexical retrieval."
+    },
+    "graph": {
+      "type": "object",
+      "description": "Graph schema, classifier and category routing lock for reproducible GraphRAG releases.",
+      "required": ["schema_version", "query_classifier_version", "classifier_threshold", "category_routes"],
+      "properties": {
+        "schema_version": {"type": "string"},
+        "query_classifier_version": {"type": "string"},
+        "classifier_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+        "category_routes": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": ["hybrid", "graph_local", "graph_global", "graph_multihop", "graph_drift"]
+          }
+        },
+        "ab_experiment_id": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
     "skills": {
       "type": "array",
       "description": "Skill Pack 依赖锁定列表，用于把数据、索引、Prompt、Skill、评测绑定为可回滚单元。",

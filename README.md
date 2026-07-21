@@ -200,7 +200,11 @@ omnisupport-copilot/
 │   ├── resources/              # Pipeline runtime resources / env config
 │   ├── parse_normalize/        # 文档解析 + 切片 + 证据链
 │   ├── lakehouse/              # Iceberg Bronze/Silver/Gold 表
-│   └── indexing/               # 向量索引构建
+│   ├── indexing/               # 向量索引构建
+│   └── graph/                  # Week13 schema/extract/align/community/build
+├── services/graph/             # GraphStore + classifier + 四种图检索
+├── release/                    # Week14 immutable manifest / registry / compliance pack
+├── rollout/                    # Week14 canary decision / atomic rollback
 ├── analytics/                  # Week05 dbt Core 项目 + KPI mart + metric registry
 ├── contracts/                  # JSON Schema 数据/工具/发布契约
 │   ├── data/                   # 四类数据契约 (doc/ticket/audio/video)
@@ -212,6 +216,7 @@ omnisupport-copilot/
 │   ├── synthetic_generators/   # 合成工单/音频生成器
 │   └── canonization/           # 规范化后的课程资产
 ├── observability/              # Week12 OTel runtime + Phoenix + SLO/alerts + bad-case loop
+├── governance/                 # Week14 OpenLineage protocol adapter
 ├── evals/                      # 评测集 + eval harness + 回归报告
 ├── tests/
 │   ├── contract/               # JSON Schema 契约测试
@@ -238,7 +243,15 @@ omnisupport-copilot/
 | W10 | 🔄 | Tool Contract Registry、受控写动作、HITL checkpoint、fallback、action lineage |
 | W11 | 🔄 | Golden set、RAGAS 风格 6 指标、Judge 校准、回归门禁、业务 SLO |
 | W12 | 🔄 | OTel/OpenInference、RAG/Tool/HITL spans、Phoenix、SLO 告警、bad-case 回归闭环 |
-| W13-15 | 📅 | GraphRAG、治理、Capstone |
+| W13 | 🔄 | 图派生资产、实体对齐、Local/Global/Multi-hop/DRIFT、按题型 A/B、release 绑定 |
+| W14 | 🔄 | lakeFS 数据版本策略、v2 统一发布清单、影响分析、灰度门禁、原子回滚、合规证据包 |
+| W15 | 📅 | 成本、SLO、Runbook 与 Capstone 交付 |
+
+Week13 GraphRAG 入口见 [runbooks/week13-graphrag.md](runbooks/week13-graphrag.md)，
+文件级设计见 [docs/blueprints/week13/week13-graphrag-blueprint.md](docs/blueprints/week13/week13-graphrag-blueprint.md)。
+
+Week14 治理发布入口见 [runbooks/week14-governed-release.md](runbooks/week14-governed-release.md)，
+文件级设计见 [docs/blueprints/week14/week14-governed-release-blueprint.md](docs/blueprints/week14/week14-governed-release-blueprint.md)。
 
 Week12 可观测闭环入口见 [runbooks/week12-observability.md](runbooks/week12-observability.md)。
 
@@ -414,6 +427,42 @@ Week10 runbook: [runbooks/week10-controlled-agent.md](runbooks/week10-controlled
 - `services/tool_api/app/routers/tool_contracts.py` 只提供契约发现和导出，不执行危险动作。
 - `ticket_update` 是 Week10 受控写动作示例，金融/外部影响动作必须先进入 HITL。
 - `agent/copilot.py` 是确定性控制面，不是完整 LLM autonomous agent。
+
+---
+
+## Week13 GraphRAG 最小闭环
+
+Week13 把图建成 Week07/08 证据资产的下游派生层。默认 `/rag/answer`
+仍走 `hybrid`；只有 `auto` 或显式 `graph_*` 模式才进入图检索。
+
+```bash
+# 1. 契约、构图、路由和 Dagster 资产测试
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox \
+  pytest tests/contract/test_week13_graphrag_contracts.py \
+    tests/integration/test_week13_graphrag_pipeline.py \
+    tests/integration/test_week13_definitions_loadable.py -v
+
+# 2. 真实 PostgreSQL 构图与 API 闭环（非 dry-run）
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox \
+  pytest tests/integration/test_week13_graph_postgres.py \
+    tests/integration/test_week13_rag_api_real_graph.py -v
+
+# 3. 按题型比较 hybrid 与 GraphRAG
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml run --rm devbox \
+  python -m evals.graphrag_ab \
+    --cases evals/fixtures/week13/graphrag_ab_cases_v1.jsonl \
+    --vector-release-id index-week08-dev \
+    --graph-release-id graph-week13-dev-v1
+```
+
+边界说明：
+
+- Student Core 用 PostgreSQL 递归查询跑通；`GraphStore` 是 Neo4j 等规模化后端的替换边界。
+- 所有边必须带 evidence IDs，实体按 product/visibility scope 隔离，最大三跳。
+- GraphRAG 是否启用按 factual/local/global/multi-hop 分层评测，不能只看总体平均分。
+- 图检索失败时记录降级原因并回落到 Week08 hybrid，不让 GraphRAG 成为单点故障。
+
+Week13 runbook: [runbooks/week13-graphrag.md](runbooks/week13-graphrag.md)
 
 ---
 

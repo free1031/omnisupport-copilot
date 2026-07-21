@@ -25,10 +25,23 @@ _pool: asyncpg.Pool | None = None
 
 async def _get_pool() -> asyncpg.Pool:
     global _pool
+    if _pool is not None:
+        loop = getattr(_pool, "_loop", None)
+        if (loop is not None and loop.is_closed()) or _pool.is_closing():
+            _pool = None
     if _pool is None:
         dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
         _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=10)
     return _pool
+
+
+async def close_pool() -> None:
+    """Close the shared pool during application shutdown and test loop changes."""
+
+    global _pool
+    if _pool is not None and not _pool.is_closing():
+        await _pool.close()
+    _pool = None
 
 
 # ── 主查询端点 ────────────────────────────────────────────────────────────────

@@ -6,6 +6,19 @@
   "index_release_id": "index-v0.1.0",
   "prompt_release_id": "prompt-v0.1.0",
   "skill_release_id": "skills-v0.1.0",
+  "graph_release_id": "graph-week13-dev-v1",
+  "graph": {
+    "schema_version": "graph_schema_v1",
+    "query_classifier_version": "deterministic-v1",
+    "classifier_threshold": 0.7,
+    "category_routes": {
+      "factual": "hybrid",
+      "local": "graph_local",
+      "global": "graph_global",
+      "multi_hop": "graph_multihop"
+    },
+    "ab_experiment_id": "week13-ab-v1"
+  },
   "skills": [
     {
       "name": "rag-contract-check",

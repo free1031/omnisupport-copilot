@@ -9,12 +9,8 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 import os
-from dataclasses import dataclass
-from typing import Sequence
 
 from app.config import settings
 from app.context_pruning import prune_contexts
@@ -182,16 +178,29 @@ def load_prompt_template(name: str) -> str:
         return ""
 
 
-def render_evidence_prompt(question: str, chunks) -> tuple[str, str]:
+def render_evidence_prompt(
+    question: str,
+    chunks,
+    *,
+    graph_context: str | None = None,
+    retrieval_mode: str = "hybrid",
+) -> tuple[str, str]:
     """Render file-backed Week08 prompts for the contract-first endpoint."""
 
     system_prompt = load_prompt_template("system_v1.md").strip() or SYSTEM_PROMPT
     answer_template = load_prompt_template("answer_v1.md").strip()
+    graph_instruction = (
+        load_prompt_template(f"{retrieval_mode}_v1.md").strip()
+        if retrieval_mode.startswith("graph_")
+        else ""
+    )
     context_blocks = build_context_blocks(chunks)
     user_prompt = "\n\n".join(
         part
         for part in [
             answer_template,
+            graph_instruction,
+            "## Governed graph context\n" + graph_context if graph_context else "",
             "## Retrieved evidence",
             context_blocks,
             "## User question",
@@ -207,6 +216,8 @@ async def generate_grounded_answer(
     question: str,
     chunks,
     prompt_release_id: str,
+    graph_context: str | None = None,
+    retrieval_mode: str = "hybrid",
 ) -> tuple[str, float, str | None]:
     """Generate a Week8 contract response body.
 
@@ -243,7 +254,12 @@ async def generate_grounded_answer(
     try:
         import anthropic
 
-        system_prompt, user_prompt = render_evidence_prompt(question, selected_chunks)
+        system_prompt, user_prompt = render_evidence_prompt(
+            question,
+            selected_chunks,
+            graph_context=graph_context,
+            retrieval_mode=retrieval_mode,
+        )
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.messages.create(
             model=settings.llm_model,

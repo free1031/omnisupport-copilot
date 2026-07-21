@@ -1,0 +1,1 @@
+"""Governance protocol adapters."""

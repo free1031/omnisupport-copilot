@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omnisupport.local/contracts/release/canary_decision.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "release_id", "manifest_digest", "stage_percent", "decision", "reason_codes", "sample_size", "observation_minutes", "metrics", "baseline"],
+  "properties": {
+    "schema_version": {"const": "canary_decision_v1"},
+    "release_id": {"type": "string"},
+    "manifest_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "stage_percent": {"enum": [5, 25, 50, 100]},
+    "decision": {"enum": ["promote", "hold", "rollback"]},
+    "reason_codes": {"type": "array", "items": {"type": "string"}},
+    "sample_size": {"type": "integer", "minimum": 0},
+    "observation_minutes": {"type": "number", "minimum": 0},
+    "metrics": {"type": "object", "additionalProperties": {"type": "number"}},
+    "baseline": {"type": "object", "additionalProperties": {"type": "number"}}
+  }
+}

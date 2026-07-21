@@ -32,6 +32,11 @@
     "data_release_id": { "type": ["string", "null"] },
     "index_release_id": { "type": "string", "minLength": 1 },
     "prompt_release_id": { "type": "string", "minLength": 1 },
+    "graph_release_id": { "type": ["string", "null"] },
+    "retrieval_mode": {
+      "type": "string",
+      "enum": ["hybrid", "graph_local", "graph_global", "graph_multihop", "graph_drift"]
+    },
     "trace_id": { "type": "string", "minLength": 1 },
     "retrieved_contexts": {
       "type": "array",
@@ -52,6 +57,10 @@
         { "$ref": "retrieval_debug.schema.json" },
         { "type": "null" }
       ]
+    },
+    "graph_debug": {
+      "type": ["object", "null"],
+      "additionalProperties": true
     }
   }
 }

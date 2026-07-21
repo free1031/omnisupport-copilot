@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["mode", "results"],
   "properties": {
-    "mode": { "type": "string", "enum": ["vector", "fts", "hybrid_rrf", "hybrid_rrf_rerank"] },
+    "mode": { "type": "string", "enum": ["vector", "fts", "hybrid_rrf", "hybrid_rrf_rerank", "graph_local", "graph_global", "graph_multihop", "graph_drift"] },
     "rrf_k": { "type": "integer", "minimum": 1, "default": 60 },
     "rerank_enabled": { "type": "boolean" },
     "rerank_fallback": { "type": "boolean" },

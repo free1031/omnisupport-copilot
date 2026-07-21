@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omnisupport.local/contracts/release/release_impact_report.schema.json",
+  "type": "object",
+  "required": ["schema_version", "candidate_release_id", "changed_components", "maximum_risk", "impacts", "required_approvals", "required_test_suites", "status"],
+  "properties": {
+    "schema_version": {"const": "release_impact_report_v1"},
+    "candidate_release_id": {"type": "string"},
+    "previous_release_id": {"type": ["string", "null"]},
+    "changed_components": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "maximum_risk": {"enum": ["low", "medium", "high", "critical"]},
+    "impacts": {"type": "array", "items": {"type": "object"}},
+    "required_approvals": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "required_test_suites": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "status": {"enum": ["no_change", "review_required"]}
+  },
+  "additionalProperties": false
+}

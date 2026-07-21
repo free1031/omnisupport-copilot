@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omnisupport.local/contracts/graph/graph_build_report.schema.json",
+  "title": "Week13 Governed Graph Build Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "graph_release_id", "graph_schema_version", "data_release_ids", "status",
+    "source_chunk_count", "entity_count", "edge_count", "community_count",
+    "quarantined_count", "rejected_count", "entities", "edges", "communities",
+    "quarantined", "rejected", "warnings"
+  ],
+  "properties": {
+    "schema_version": {"const": "graph_build_report_v1"},
+    "graph_release_id": {"type": "string", "minLength": 1},
+    "graph_schema_version": {"type": "string", "minLength": 1},
+    "data_release_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "status": {"enum": ["pass", "warn"]},
+    "source_chunk_count": {"type": "integer", "minimum": 1},
+    "entity_count": {"type": "integer", "minimum": 1},
+    "edge_count": {"type": "integer", "minimum": 1},
+    "community_count": {"type": "integer", "minimum": 1},
+    "quarantined_count": {"type": "integer", "minimum": 0},
+    "rejected_count": {"type": "integer", "minimum": 0},
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "entity_id", "graph_release_id", "entity_type", "canonical_name",
+          "normalized_name", "aliases", "chunk_ids", "evidence_ids",
+          "data_release_id", "product_line", "visibility_scope", "confidence"
+        ],
+        "properties": {
+          "entity_id": {"type": "string"},
+          "graph_release_id": {"type": "string"},
+          "entity_type": {"type": "string"},
+          "canonical_name": {"type": "string"},
+          "normalized_name": {"type": "string"},
+          "aliases": {"type": "array", "items": {"type": "string"}},
+          "properties": {"type": "object"},
+          "chunk_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "evidence_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "data_release_id": {"type": "string"},
+          "product_line": {"type": "string"},
+          "visibility_scope": {"type": "string"},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "edge_id", "graph_release_id", "relation_type", "source_entity_id",
+          "target_entity_id", "chunk_ids", "evidence_ids", "data_release_id", "confidence"
+        ],
+        "properties": {
+          "edge_id": {"type": "string"},
+          "graph_release_id": {"type": "string"},
+          "relation_type": {"type": "string"},
+          "source_entity_id": {"type": "string"},
+          "target_entity_id": {"type": "string"},
+          "properties": {"type": "object"},
+          "chunk_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "evidence_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "data_release_id": {"type": "string"},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "communities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "community_id", "graph_release_id", "level", "member_entity_ids",
+          "summary", "evidence_ids", "product_lines", "visibility_scopes"
+        ],
+        "properties": {
+          "community_id": {"type": "string"},
+          "graph_release_id": {"type": "string"},
+          "level": {"type": "integer", "minimum": 0},
+          "member_entity_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "summary": {"type": "string", "minLength": 1},
+          "evidence_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "product_lines": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "visibility_scopes": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "quarantined": {"type": "array", "items": {"type": "object"}},
+    "rejected": {"type": "array", "items": {"type": "object"}},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

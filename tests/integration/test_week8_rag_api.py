@@ -4,7 +4,6 @@ import types
 
 from fastapi.testclient import TestClient
 
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "services", "rag_api"))
 os.environ.setdefault("OTEL_ENABLED", "false")
 
@@ -50,3 +49,23 @@ def test_week8_rag_answer_no_answer_contract():
     assert payload["index_release_id"] == "index-week08-dev"
     assert payload["prompt_release_id"] == "prompt-week08-v1"
     assert payload["trace_id"]
+    assert payload["retrieval_mode"] == "hybrid"
+
+
+def test_week13_graph_request_degrades_to_hybrid_without_graph_runtime():
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.post(
+        "/rag/answer",
+        json={
+            "question": "过去半年所有故障的共性是什么",
+            "retrieval_mode": "graph_global",
+            "graph_release_id": "graph-not-installed",
+            "include_debug": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["retrieval_mode"] == "hybrid"
+    assert payload["graph_release_id"] == "graph-not-installed"
+    assert payload["graph_debug"]["fallback_reason"]

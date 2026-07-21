@@ -5,6 +5,14 @@ Week12 has two acceptance paths. Run both from the repository root.
 - Live path: real HTTP requests, distributed trace propagation, Collector, Phoenix.
 - Closure path: SLO alert, incident, postmortem, Week11 regression case and gate.
 
+## Architecture Map
+
+![Week12 full-path observability file-level code architecture](../docs/assets/week12/week12-observability-code-architecture.png)
+
+Before running the commands, use the upper lane to locate the live trace path
+and the lower lane to locate the deterministic governance closure. The file
+paths in the diagram match the modules exercised by this runbook.
+
 ## 1. Start the Real Runtime
 
 ```bash

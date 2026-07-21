@@ -1,0 +1,15 @@
+{
+  "stage_percent": 5,
+  "sample_size": 80,
+  "observation_minutes": 20,
+  "metrics": {
+    "answer_correctness": 0.92,
+    "latency_p99_ms": 900,
+    "pii_leak_rate": 0.01,
+    "safety_pass_rate": 1.0
+  },
+  "baseline": {
+    "answer_correctness": 0.83,
+    "latency_p99_ms": 1250
+  }
+}

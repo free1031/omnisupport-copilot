@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Literal
-from pydantic import BaseModel, Field
+from typing import List, Literal, Optional
 
+from pydantic import BaseModel, Field
 
 # ── 证据锚点 ─────────────────────────────────────────────────────────────────
 
@@ -129,7 +129,10 @@ class RetrievalDebugItem(BaseModel):
 
 
 class RetrievalDebugPayload(BaseModel):
-    mode: Literal["vector", "fts", "hybrid_rrf", "hybrid_rrf_rerank"] = "hybrid_rrf"
+    mode: Literal[
+        "vector", "fts", "hybrid_rrf", "hybrid_rrf_rerank",
+        "graph_local", "graph_global", "graph_multihop", "graph_drift",
+    ] = "hybrid_rrf"
     rrf_k: int = 60
     rerank_enabled: bool = False
     rerank_fallback: bool = False
@@ -149,7 +152,24 @@ class RagAnswerRequest(BaseModel):
     index_release_id: Optional[str] = None
     data_release_id: Optional[str] = None
     prompt_release_id: Optional[str] = None
+    graph_release_id: Optional[str] = None
+    retrieval_mode: Literal[
+        "hybrid", "auto", "graph_local", "graph_global", "graph_multihop", "graph_drift"
+    ] = "hybrid"
+    max_graph_hops: int = Field(default=2, ge=1, le=3)
     include_debug: bool = False
+
+
+class GraphRetrievalDebug(BaseModel):
+    requested_mode: str
+    selected_mode: str
+    graph_release_id: Optional[str] = None
+    route_confidence: float = Field(ge=0.0, le=1.0)
+    route_reasons: List[str] = Field(default_factory=list)
+    paths: List[dict] = Field(default_factory=list)
+    communities: List[dict] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    fallback_reason: Optional[str] = None
 
 
 class RagAnswerResponse(BaseModel):
@@ -162,6 +182,9 @@ class RagAnswerResponse(BaseModel):
     data_release_id: Optional[str]
     index_release_id: str
     prompt_release_id: str
+    graph_release_id: Optional[str] = None
+    retrieval_mode: str = "hybrid"
     trace_id: str
     retrieved_contexts: Optional[List[RetrievalContext]] = None
     retrieval_debug: Optional[RetrievalDebugPayload] = None
+    graph_debug: Optional[GraphRetrievalDebug] = None

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omnisupport.local/contracts/graph/graphrag_ab_report.schema.json",
+  "title": "Week13 GraphRAG Per-Category A/B Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "experiment_id", "vector_release_id", "graph_release_id", "categories", "routing_policy", "gate"],
+  "properties": {
+    "schema_version": {"const": "graphrag_ab_report_v1"},
+    "experiment_id": {"type": "string"},
+    "vector_release_id": {"type": "string"},
+    "graph_release_id": {"type": "string"},
+    "categories": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["sample_count", "vector_quality", "graph_quality", "quality_delta", "cost_ratio", "decision"],
+        "properties": {
+          "sample_count": {"type": "integer", "minimum": 1},
+          "vector_quality": {"type": "number", "minimum": 0, "maximum": 1},
+          "graph_quality": {"type": "number", "minimum": 0, "maximum": 1},
+          "quality_delta": {"type": "number"},
+          "cost_ratio": {"type": "number", "minimum": 0},
+          "decision": {"enum": ["graph", "vector", "need_more_data"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "routing_policy": {"type": "object", "additionalProperties": {"type": "string"}},
+    "gate": {
+      "type": "object",
+      "required": ["status", "blocking_reasons"],
+      "properties": {
+        "status": {"enum": ["pass", "fail"]},
+        "blocking_reasons": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  }
+}

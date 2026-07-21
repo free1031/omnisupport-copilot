@@ -1,0 +1,24 @@
+repository: omnisupport-data
+endpoint: ${LAKEFS_ENDPOINT:-http://lakefs:8000}
+default_branch: main
+branch_patterns:
+  feature: feature/{ticket}-{owner}
+  release: release/{release_id}
+  hotfix: hotfix/{ticket}
+protected_refs:
+  - main
+  - refs/tags/data-*
+merge_policy:
+  require_contract_gate: true
+  require_quality_gate: true
+  require_impact_report: true
+  require_release_owner_approval: true
+commit_metadata_required:
+  - actor
+  - change_ticket
+  - data_contract_version
+  - trace_id
+release_binding:
+  manifest_field: spec.components.data.lakefs_ref
+  immutable_ref_type: tag
+  forbid_branch_ref_in_prod: true

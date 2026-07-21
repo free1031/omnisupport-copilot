@@ -1,0 +1,45 @@
+version: graph_schema_v1
+entity_types:
+  PRODUCT:
+    description: Supported product or product family.
+    aliases:
+      Northstar Workspace: [Workspace, NS Workspace]
+      Northstar Edge Gateway: [Edge Gateway, NS Edge]
+  ISSUE:
+    description: A diagnosed support issue or failure mode.
+  SYMPTOM:
+    description: An observable user or system symptom.
+  RESOLUTION:
+    description: A verified remediation or recovery action.
+  VERSION:
+    description: A product or document version.
+  DOCUMENT:
+    description: A governed source document.
+
+relation_types:
+  HAS_ISSUE:
+    source_types: [PRODUCT]
+    target_types: [ISSUE]
+  HAS_SYMPTOM:
+    source_types: [ISSUE]
+    target_types: [SYMPTOM]
+  RESOLVED_BY:
+    source_types: [ISSUE]
+    target_types: [RESOLUTION]
+  APPLIES_TO_VERSION:
+    source_types: [ISSUE, RESOLUTION]
+    target_types: [VERSION]
+  SUPERSEDES:
+    source_types: [VERSION, RESOLUTION]
+    target_types: [VERSION, RESOLUTION]
+  DOCUMENTS:
+    source_types: [DOCUMENT]
+    target_types: [PRODUCT, ISSUE, SYMPTOM, RESOLUTION, VERSION]
+
+quality_gate:
+  min_entity_confidence: 0.85
+  min_relation_confidence: 0.85
+  fuzzy_auto_merge_threshold: 0.96
+  fuzzy_review_threshold: 0.88
+  max_query_hops: 3
+  require_evidence_for_edges: true

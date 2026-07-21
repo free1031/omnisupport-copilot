@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omnisupport.local/contracts/release/compliance_evidence_pack.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "release_id", "manifest_digest", "previous_release_id", "previous_manifest_digest", "generated_at", "artifacts", "completeness"],
+  "properties": {
+    "schema_version": {"const": "compliance_evidence_pack_v1"},
+    "release_id": {"type": "string"},
+    "manifest_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "previous_release_id": {"type": ["string", "null"]},
+    "previous_manifest_digest": {"type": ["string", "null"]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "artifacts": {"type": "array", "items": {"type": "object", "required": ["path", "digest", "size_bytes"], "properties": {"path": {"type": "string"}, "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}, "size_bytes": {"type": "integer", "minimum": 0}}, "additionalProperties": false}},
+    "completeness": {"type": "object", "required": ["status", "missing"], "properties": {"status": {"enum": ["pass", "fail"]}, "missing": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false}
+  }
+}

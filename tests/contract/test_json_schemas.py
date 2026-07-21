@@ -42,6 +42,10 @@ DATA_CONTRACTS = [
 @pytest.mark.parametrize("schema_path", DATA_CONTRACTS + TOOL_CONTRACTS + [
     CONTRACTS_DIR / "tools" / "tool_contract_schema.json",
     CONTRACTS_DIR / "release" / "release_manifest_schema.json",
+    CONTRACTS_DIR / "release" / "release_manifest_v2.schema.json",
+    CONTRACTS_DIR / "release" / "release_impact_report.schema.json",
+    CONTRACTS_DIR / "release" / "canary_decision.schema.json",
+    CONTRACTS_DIR / "release" / "compliance_evidence_pack.schema.json",
 ])
 def test_contract_file_exists(schema_path: Path):
     assert schema_path.exists(), f"Contract file missing: {schema_path}"

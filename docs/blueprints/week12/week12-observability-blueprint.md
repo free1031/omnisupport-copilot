@@ -3,6 +3,16 @@
 Week12 does not add a detached monitoring demo. It closes the loop around the
 Week08 RAG path, Week10 controlled actions, and Week11 evaluation gate.
 
+## Code Architecture Map
+
+![Week12 full-path observability file-level code architecture](../../assets/week12/week12-observability-code-architecture.png)
+
+Read the diagram from left to right. The upper lane follows the live distributed
+trace from business code to Phoenix; the lower lane follows telemetry through
+SLO evaluation, incident handling, bad-case conversion, and the Week11
+regression gate. The three rails at the bottom are the identifiers that keep
+the runtime and governance paths connected.
+
 ```text
 request
   -> FastAPI server span and W3C trace context

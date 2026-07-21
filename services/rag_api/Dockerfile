@@ -2,6 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+ENV PYTHONPATH=/app:/workspace
+
 # 系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -13,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 源码
 COPY services/rag_api/app/ ./app/
+COPY services/graph/ /workspace/services/graph/
 COPY observability/ ./observability/
 
 EXPOSE 8000
