@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY services/tool_api/app/ ./app/
 COPY observability/ ./observability/
+COPY agent/ ./agent/
+COPY tools/ ./tools/
 
 EXPOSE 8001
 

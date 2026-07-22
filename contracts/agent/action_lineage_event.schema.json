@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/agent/action_lineage_event/v1",
   "title": "ActionLineageEvent",
   "description": "Week10 受控 Agent 动作血缘事件。每个可写动作必须绑定数据快照、证据、提示词、工具、模型和技能版本。",

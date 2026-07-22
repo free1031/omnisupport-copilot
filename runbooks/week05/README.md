@@ -127,7 +127,10 @@ curl -s http://localhost:8001/health
 
 curl -s -X POST http://localhost:8001/api/v1/tools/query_support_kpis \
   -H 'Content-Type: application/json' \
+  -H 'X-Service-Token: dev-internal-token-change-in-prod' \
   -H 'X-Actor-ID: instructor-local' \
+  -H 'X-Actor-Role: instructor' \
+  -H 'X-Tenant-ID: course-legacy' \
   -d '{
     "actor_role": "instructor",
     "metrics": ["ticket_count"],

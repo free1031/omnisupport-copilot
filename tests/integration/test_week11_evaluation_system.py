@@ -1,3 +1,5 @@
+# ruff: noqa: E402 - repository path is installed before Week11 imports
+
 import asyncio
 import json
 import sys
@@ -13,7 +15,6 @@ from evals.week11.business_slo import evaluate_business_slo
 from evals.week11.calibrate import calibration_report, load_score_pairs
 from evals.week11.regression import check_regression, load_metrics
 from evals.week11.runner import EvaluationRunner, write_report
-
 
 DATASET = PROJECT_ROOT / "evals" / "sets" / "rag_qa_golden_v2_3_0.jsonl"
 PREDICTIONS = PROJECT_ROOT / "evals" / "fixtures" / "week11" / "rag_predictions_good.jsonl"

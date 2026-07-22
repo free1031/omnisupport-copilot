@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/skills/skill_pack/v1",
   "title": "SkillPack",
   "description": "OmniSupport Copilot Week09 Agent Skill Pack contract. A skill is a portable folder with SKILL.md plus optional scripts, references, and assets.",

@@ -99,6 +99,10 @@ no-op；内容或 `index_release_id` 变化时必须使用新的 `graph_release_
 ```bash
 curl -sS http://localhost:8000/rag/answer \
   -H 'Content-Type: application/json' \
+  -H 'X-Service-Token: dev-internal-token-change-in-prod' \
+  -H 'X-Actor-ID: instructor-local' \
+  -H 'X-Actor-Role: instructor' \
+  -H 'X-Tenant-ID: course-legacy' \
   -d '{
     "question": "Northstar Workspace SSO login loop 的问题、症状和解决方案关系链",
     "retrieval_mode": "graph_multihop",
@@ -121,6 +125,10 @@ curl -sS http://localhost:8000/rag/answer \
 ```bash
 curl -sS http://localhost:8000/rag/answer \
   -H 'Content-Type: application/json' \
+  -H 'X-Service-Token: dev-internal-token-change-in-prod' \
+  -H 'X-Actor-ID: instructor-local' \
+  -H 'X-Actor-Role: instructor' \
+  -H 'X-Tenant-ID: course-legacy' \
   -d '{
     "question": "过去半年所有故障的共性是什么",
     "retrieval_mode": "auto",

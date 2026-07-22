@@ -31,6 +31,16 @@ from pipelines.ingestion.reporting import (
 
 logger = logging.getLogger(__name__)
 
+RAW_BUCKET_BY_ASSET_TYPE = {
+    "audio": "omni-raw-audio",
+    "video": "omni-raw-video",
+}
+
+
+def raw_bucket_for(asset_type: str) -> str:
+    """Route large media to modality buckets while keeping document-like assets together."""
+    return RAW_BUCKET_BY_ASSET_TYPE.get(asset_type, "omni-raw-documents")
+
 
 # ── MinIO 客户端封装 ──────────────────────────────────────────────────────────
 
@@ -240,7 +250,7 @@ async def run_doc_ingest(
                     # ── MinIO 上传 ──────────────────────────────────────────────
                     raw_object_path = source_path   # 默认保持原路径
                     if minio:
-                        bucket = "omni-raw-documents"
+                        bucket = raw_bucket_for(asset.get("asset_type", "unknown"))
                         product = asset.get("_product_line", "unknown")
                         key = f"{product}/{asset.get('asset_type', 'misc')}/{Path(source_path).name}"
 
@@ -251,6 +261,12 @@ async def run_doc_ingest(
                                     ".pdf": "application/pdf",
                                     ".html": "text/html",
                                     ".json": "application/json",
+                                    ".png": "image/png",
+                                    ".jpg": "image/jpeg",
+                                    ".jpeg": "image/jpeg",
+                                    ".wav": "audio/wav",
+                                    ".mp3": "audio/mpeg",
+                                    ".mp4": "video/mp4",
                                 }.get(ext, "application/octet-stream")
                                 raw_object_path = minio.upload_bytes(bucket, key, raw_bytes, content_type)
                                 stats["uploaded"] += 1

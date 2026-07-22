@@ -1,3 +1,5 @@
+from typing import List
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,13 +15,18 @@ class Settings(BaseSettings):
     otel_sample_ratio: float = 1.0
     otel_capture_content: bool = False
     release_id: str = "dev-local"
+    data_release_id: str = "data-capstone-v1"
     metric_registry_path: str = "/workspace/analytics/metric_registry_v1.yml"
     skill_registry_path: str = "/workspace/skills"
     tool_contracts_path: str = "/workspace/contracts/tools/tools"
     tool_contract_schema_path: str = "/workspace/contracts/tools/tool_contract_schema.json"
+    internal_service_token: str = "dev-internal-token-change-in-prod"
+    require_internal_auth: bool = False
+    default_tenant_id: str = "course-legacy"
+    cors_origins: List[str] = ["http://localhost:8010", "http://127.0.0.1:8010"]
 
     # HITL 配置
-    hitl_webhook_url: str = ""   # Week10 接入
+    hitl_webhook_url: str = ""
     hitl_timeout_sec: int = 300
 
 

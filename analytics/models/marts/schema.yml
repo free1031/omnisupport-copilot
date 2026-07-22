@@ -8,6 +8,9 @@ models:
         tests:
           - not_null
           - unique
+      - name: tenant_id
+        tests:
+          - not_null
       - name: created_date
         tests:
           - not_null
@@ -18,6 +21,9 @@ models:
     description: "Controlled metric rows by date and safe business dimensions."
     columns:
       - name: metric_date
+        tests:
+          - not_null
+      - name: tenant_id
         tests:
           - not_null
       - name: metric_name
@@ -46,6 +52,9 @@ models:
     description: "Read-only safe view used by query_support_kpis_v1. No raw SQL access is exposed to Agent callers."
     columns:
       - name: metric_date
+        tests:
+          - not_null
+      - name: tenant_id
         tests:
           - not_null
       - name: metric_name

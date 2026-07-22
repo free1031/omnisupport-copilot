@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/release/release_manifest/v1",
   "title": "ReleaseManifest",
   "description": "OmniSupport Copilot — 统一发布清单 v1。绑定数据版本、索引版本、Prompt 版本与评测结果，是回滚的唯一基准。",

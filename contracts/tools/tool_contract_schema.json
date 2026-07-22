@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/tools/tool_contract/v1",
   "title": "ToolContract",
   "description": "OmniSupport Copilot — Agent 工具契约规范 v1。所有可被 Agent 调用的工具必须符合此契约。",

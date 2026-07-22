@@ -1,3 +1,5 @@
+# ruff: noqa: E402 - repository path is installed before Week11 imports
+
 import json
 import sys
 from pathlib import Path
@@ -9,7 +11,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from evals.week11.dataset import dataset_manifest, load_eval_set
 from evals.week11.runner import DEFAULT_DATASET_ID, DEFAULT_DATASET_VERSION
-
 
 DATASET = PROJECT_ROOT / "evals" / "sets" / "rag_qa_golden_v2_3_0.jsonl"
 PREDICTIONS = PROJECT_ROOT / "evals" / "fixtures" / "week11" / "rag_predictions_good.jsonl"

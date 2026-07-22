@@ -1,12 +1,11 @@
 """Week07 parse/normalize data models."""
 
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 import hashlib
 import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 
 DEFAULT_PARSE_STRATEGY_VERSION = "parse_normalize_v1"
 DEFAULT_CHUNK_STRATEGY_VERSION = "section_aware_v1"

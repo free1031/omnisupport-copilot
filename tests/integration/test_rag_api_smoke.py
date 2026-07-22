@@ -4,6 +4,8 @@
 Week01 DoD：这些测试必须本地 `pytest` 通过。
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -11,8 +13,8 @@ from fastapi.testclient import TestClient
 @pytest.fixture(scope="module")
 def client():
     """不启动真实依赖，直接测试 API 骨架"""
-    import sys
     import os
+    import sys
 
     # 确保 rag_api 可导入
     sys.path.insert(0, str(
@@ -40,6 +42,17 @@ class TestHealthEndpoint:
     def test_health_service_name(self, client):
         data = client.get("/health").json()
         assert data["service"] == "rag_api"
+
+    def test_health_reports_release_backed_index_and_local_llm(self, client):
+        with patch(
+            "app.routers.health._check_storage",
+            new=AsyncMock(return_value=("ok", "ok")),
+        ):
+            data = client.get("/health").json()
+
+        assert data["status"] == "ok"
+        assert data["checks"]["vector_index"] == "ok"
+        assert data["checks"]["llm"] in {"external", "deterministic_fallback"}
 
 
 class TestQueryEndpoint:

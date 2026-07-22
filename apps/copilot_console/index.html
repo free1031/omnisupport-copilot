@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OmniSupport Copilot</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <section id="login-view" class="login-shell">
+    <div class="login-story">
+      <div class="brand-mark">OS</div>
+      <p class="eyebrow">NORTHSTAR SYSTEMS / SUPPORT OPERATIONS</p>
+      <h1>Turn support evidence<br>into governed action.</h1>
+      <p class="lead">OmniSupport 把知识检索、证据引用、工单操作、人工审批、评测与审计放进同一个客服工作面。</p>
+      <div class="proof-strip">
+        <span>Evidence-first</span><span>Human-controlled</span><span>Release-aware</span>
+      </div>
+    </div>
+    <form id="login-form" class="login-card">
+      <div>
+        <p class="eyebrow">SECURE WORKSPACE</p>
+        <h2>坐席登录</h2>
+        <p>演示环境账号已预置。登录后所有问答与动作都会写入审计链。</p>
+      </div>
+      <label>邮箱<input id="email" type="email" autocomplete="username" value="agent@northstar.demo" required></label>
+      <label>密码<input id="password" type="password" autocomplete="current-password" value="Agent@2026" required></label>
+      <button class="primary full" type="submit">进入工作台 <span>→</span></button>
+      <p id="login-error" class="form-error" role="alert"></p>
+      <div class="demo-users">
+        <strong>审批演示</strong>
+        <code>admin@northstar.demo / Admin@2026</code>
+      </div>
+    </form>
+  </section>
+
+  <div id="app-view" class="app-shell hidden">
+    <aside class="rail">
+      <div class="rail-brand"><span class="brand-mark small">OS</span><strong>OmniSupport</strong></div>
+      <nav>
+        <button class="nav-item active" data-view="workspace"><span>01</span>Agent Workspace</button>
+        <button class="nav-item" data-view="approvals"><span>02</span>Approvals <b id="approval-badge" class="badge hidden">0</b></button>
+        <button class="nav-item" data-view="operations"><span>03</span>Operations</button>
+      </nav>
+      <div class="rail-links">
+        <p class="eyebrow">ENGINEERING</p>
+        <a href="http://localhost:3000" target="_blank" rel="noreferrer">Dagster ↗</a>
+        <a href="http://localhost:6006" target="_blank" rel="noreferrer">Phoenix ↗</a>
+        <a href="http://localhost:9001" target="_blank" rel="noreferrer">MinIO ↗</a>
+      </div>
+      <button id="logout" class="user-chip"><span id="user-initials">LC</span><span><b id="user-name">Lin Chen</b><small id="user-role">support_agent</small></span></button>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow" id="view-kicker">LIVE CASE OPERATIONS</p><h2 id="view-title">Agent Workspace</h2></div>
+        <div class="system-state"><i id="health-dot"></i><span id="health-text">Checking system</span></div>
+      </header>
+
+      <section id="workspace-view" class="view workspace-grid">
+        <div class="queue panel">
+          <div class="panel-head"><div><p class="eyebrow">PRIORITIZED QUEUE</p><h3>Cases</h3></div><span id="case-count" class="count">0</span></div>
+          <div class="queue-tools">
+            <input id="case-search" type="search" placeholder="Search case or subject">
+            <select id="case-status"><option value="">Active + resolved</option><option>open</option><option>pending</option><option>in_progress</option><option>escalated</option><option>resolved</option></select>
+          </div>
+          <div id="case-list" class="case-list"><div class="skeleton tall"></div></div>
+        </div>
+
+        <article class="case-panel panel">
+          <div id="case-empty" class="empty-state"><span>↖</span><h3>选择一个工单</h3><p>从队列进入真实 case，查看客户上下文、时间线和受控动作。</p></div>
+          <div id="case-content" class="hidden">
+            <div class="case-hero">
+              <div class="case-id-row"><code id="case-id"></code><span id="case-status-pill" class="pill"></span><span id="case-priority-pill" class="pill"></span></div>
+              <h2 id="case-subject"></h2>
+              <div class="case-meta"><span id="case-org"></span><span id="case-product"></span><span id="case-sla"></span></div>
+            </div>
+            <div class="case-actions">
+              <button class="secondary action-trigger" data-operation="add_internal_note">Add note</button>
+              <button class="secondary action-trigger" data-operation="update_status">Update status</button>
+              <button class="secondary action-trigger" data-operation="grant_service_credit">Service credit</button>
+            </div>
+            <div class="section-title"><span>Case timeline</span><small>PostgreSQL source of truth</small></div>
+            <div id="case-comments" class="timeline"></div>
+          </div>
+        </article>
+
+        <section class="copilot panel">
+          <div class="panel-head copilot-head">
+            <div><p class="eyebrow">EVIDENCE-GROUNDED</p><h3>Copilot</h3></div>
+            <select id="retrieval-mode" title="Retrieval mode"><option value="auto">Auto route</option><option value="hybrid">Hybrid RAG</option><option value="graph_local">Graph local</option><option value="graph_multihop">Graph multi-hop</option><option value="graph_global">Graph global</option></select>
+          </div>
+          <div id="chat" class="chat"><div class="chat-empty"><div class="orb"></div><h3>Ask from the case.</h3><p>答案只基于已发布证据。没有足够证据时，系统会明确拒答。</p><div class="suggestions"><button>如何恢复 Workspace 管理员访问？</button><button>这个错误码的排查顺序是什么？</button><button>汇总跨文档的恢复策略。</button></div></div></div>
+          <form id="chat-form" class="composer"><textarea id="question" rows="2" placeholder="Ask about this case and the governed knowledge base…" required></textarea><div><small>RAG → evidence → answer → audit</small><button class="send" type="submit" aria-label="Send">↑</button></div></form>
+        </section>
+      </section>
+
+      <section id="approvals-view" class="view hidden page-view">
+        <div class="page-intro"><p class="eyebrow">HUMAN-IN-THE-LOOP</p><h2>Risky actions stop here.</h2><p>金融、外部写入和策略命中的动作不会由模型直接执行。审批后从原 checkpoint 恢复，并保留同一条 trace 与 lineage。</p></div>
+        <div id="approval-list" class="approval-list"></div>
+      </section>
+
+      <section id="operations-view" class="view hidden page-view">
+        <div class="page-intro"><p class="eyebrow">CONTROL ROOM</p><h2>One product, one evidence trail.</h2><p>从业务队列到模型质量、发布版本和运行组件，所有状态都来自真实后端。</p></div>
+        <div id="metric-grid" class="metric-grid"></div>
+        <section class="panel analytics-panel">
+          <div class="panel-head"><div><p class="eyebrow">GOVERNED SEMANTIC QUERY</p><h3>Support KPI explorer</h3></div><small>metric registry → safe view → parameterized SQL → audit</small></div>
+          <form id="kpi-form" class="kpi-form">
+            <label>Metrics<select id="kpi-metrics" multiple size="4"><option value="ticket_count" selected>Ticket count</option><option value="open_ticket_count">Open ticket count</option><option value="sla_breach_count" selected>SLA breach count</option><option value="escalation_rate">Escalation rate</option><option value="avg_first_response_minutes">Avg first response minutes</option></select></label>
+            <label>Dimension<select id="kpi-dimension"><option value="product_line">Product line</option><option value="priority">Priority</option><option value="category">Category</option><option value="org_id">Organization</option></select></label>
+            <label>From<input id="kpi-from" type="date" required></label>
+            <label>To<input id="kpi-to" type="date" required></label>
+            <button class="primary" type="submit">Run governed query</button>
+          </form>
+          <div id="kpi-policy" class="policy-strip">Select metrics and run the governed query.</div>
+          <div id="kpi-results" class="table-shell"><div class="empty-state compact"><p>No query executed.</p></div></div>
+        </section>
+        <div class="ops-columns">
+          <div class="panel ops-panel"><div class="panel-head"><div><p class="eyebrow">ACTIVE RELEASE</p><h3>Version bindings</h3></div></div><div id="release-card"></div></div>
+          <div class="panel ops-panel"><div class="panel-head"><div><p class="eyebrow">RUNTIME</p><h3>Engineering surfaces</h3></div></div><div id="component-list" class="component-list"></div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <aside id="evidence-drawer" class="drawer hidden"><div class="drawer-head"><div><p class="eyebrow">SOURCE EVIDENCE</p><h3>Evidence detail</h3></div><button id="close-drawer">×</button></div><div id="evidence-content"></div></aside>
+
+  <dialog id="action-dialog">
+    <form id="action-form" method="dialog">
+      <div class="dialog-head"><div><p class="eyebrow">GOVERNED TOOL ACTION</p><h3 id="action-title">Update case</h3></div><button value="cancel" class="icon-button">×</button></div>
+      <input id="action-operation" type="hidden">
+      <label>Business reason<textarea id="action-reason" required minlength="8" rows="3" placeholder="Why is this action necessary?"></textarea></label>
+      <label id="action-status-field" class="conditional hidden">New status<select id="action-status"><option>in_progress</option><option>pending</option><option>resolved</option><option>escalated</option><option>closed</option></select></label>
+      <label id="action-amount-field" class="conditional hidden">Credit amount (USD)<input id="action-amount" type="number" min="1" value="500"></label>
+      <p class="policy-note">角色、契约、幂等与 HITL 策略在服务端重新判定；前端不能绕过。</p>
+      <div class="dialog-actions"><button value="cancel" class="secondary">Cancel</button><button id="action-submit" value="default" class="primary">Submit governed action</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

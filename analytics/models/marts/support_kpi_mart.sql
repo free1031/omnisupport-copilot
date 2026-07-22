@@ -1,6 +1,8 @@
 with daily as (
     select
         activity_date as metric_date,
+        tenant_id,
+        data_release_id,
         product_line,
         priority,
         org_id,
@@ -12,6 +14,8 @@ with daily as (
         escalation_count,
         resolved_ticket_count,
         first_resolution_count,
+        first_response_count,
+        handle_time_count,
         avg_backlog_age_days,
         avg_first_response_minutes,
         avg_handle_time_minutes,
@@ -24,6 +28,8 @@ with daily as (
 metric_rows as (
     select
         daily.metric_date,
+        daily.tenant_id,
+        daily.data_release_id,
         metrics.metric_name,
         daily.product_line,
         daily.priority,
@@ -37,6 +43,8 @@ metric_rows as (
         daily.escalation_count,
         daily.resolved_ticket_count,
         daily.first_resolution_count,
+        daily.first_response_count,
+        daily.handle_time_count,
         daily.avg_backlog_age_days,
         daily.avg_first_response_minutes,
         daily.avg_handle_time_minutes,
@@ -63,6 +71,7 @@ metric_rows as (
 
 select
     metric_date,
+    tenant_id,
     metric_name,
     product_line,
     priority,
@@ -76,12 +85,14 @@ select
     escalation_count,
     resolved_ticket_count,
     first_resolution_count,
+    first_response_count,
+    handle_time_count,
     avg_backlog_age_days,
     avg_first_response_minutes,
     avg_handle_time_minutes,
     escalation_rate,
     sla_breach_rate,
     first_resolution_rate,
-    '{{ var("week05_data_release_id") }}' as data_release_id,
+    coalesce(data_release_id, '{{ var("week05_data_release_id") }}') as data_release_id,
     current_timestamp as generated_at
 from metric_rows

@@ -37,6 +37,7 @@ venv/
 
 # Testing
 .pytest_cache/
+.playwright-cli/
 .coverage
 htmlcov/
 .tox/
@@ -54,6 +55,8 @@ logs/
 
 # Runtime artifacts
 artifacts/
+data/generated/
+reports/capstone/
 
 # Docker
 .docker/

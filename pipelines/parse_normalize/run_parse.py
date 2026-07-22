@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import json
-from dataclasses import asdict
 from pathlib import Path
 
 from pipelines.parse_normalize.chunking import chunk_sections

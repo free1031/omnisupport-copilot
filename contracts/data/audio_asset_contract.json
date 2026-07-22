@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/data/audio_asset/v1",
   "title": "AudioAssetContract",
   "description": "OmniSupport Copilot — 音频资产数据契约 v1 (客服通话 / TTS 合成 / 录音转写)",

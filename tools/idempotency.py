@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-class IdempotencyConflict(ValueError):
+class IdempotencyConflict(ValueError):  # noqa: N818 - public Week10 contract name
     """Raised when a key is reused with a different request payload."""
 
 

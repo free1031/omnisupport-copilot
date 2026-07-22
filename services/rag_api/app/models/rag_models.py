@@ -142,6 +142,7 @@ class RetrievalDebugPayload(BaseModel):
 
 class RagAnswerRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2048)
+    tenant_id: Optional[str] = None
     product_line: Optional[str] = None
     actor_role: Optional[str] = None
     visibility_scope: Optional[str] = None
@@ -184,6 +185,9 @@ class RagAnswerResponse(BaseModel):
     prompt_release_id: str
     graph_release_id: Optional[str] = None
     retrieval_mode: str = "hybrid"
+    generation_mode: Literal["llm", "deterministic_fallback", "not_invoked"]
+    generation_provider: str
+    generation_model: str
     trace_id: str
     retrieved_contexts: Optional[List[RetrievalContext]] = None
     retrieval_debug: Optional[RetrievalDebugPayload] = None

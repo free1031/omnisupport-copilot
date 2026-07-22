@@ -1,11 +1,12 @@
-from pathlib import Path
-import sys
+# ruff: noqa: E402 - RAG service path is installed before app imports
 
+import sys
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "services" / "rag_api"))
 
-from app.retrieval import RetrievalResult, reciprocal_rank_fusion
+from app.retrieval import RetrievalResult, _build_fts_query, reciprocal_rank_fusion
 
 
 def result(chunk_id: str, vector_score: float = 0.0, fts_score: float = 0.0) -> RetrievalResult:
@@ -41,3 +42,9 @@ def test_rrf_merges_same_chunk_and_preserves_scores():
     assert by_id["a"].fts_score == 0.4
     assert by_id["a"].rrf_score > by_id["b"].rrf_score
     assert by_id["a"].debug_scores()["final_score"] == by_id["a"].rrf_score
+
+
+def test_fts_query_preserves_business_terms_and_removes_question_noise():
+    query = _build_fts_query("What must happen before rotating a Workspace webhook signing secret?")
+
+    assert query == "happen OR rotating OR workspace OR webhook OR signing OR secret"

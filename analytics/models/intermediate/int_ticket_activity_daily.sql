@@ -1,5 +1,7 @@
 select
     created_date as activity_date,
+    tenant_id,
+    data_release_id,
     coalesce(product_line, 'unknown') as product_line,
     coalesce(priority, 'unknown') as priority,
     coalesce(org_id, 'unknown') as org_id,
@@ -11,6 +13,8 @@ select
     sum(case when is_escalated then 1 else 0 end)::integer as escalation_count,
     sum(case when is_resolved then 1 else 0 end)::integer as resolved_ticket_count,
     sum(case when is_first_resolution_proxy then 1 else 0 end)::integer as first_resolution_count,
+    count(first_response_minutes)::integer as first_response_count,
+    count(handle_time_minutes)::integer as handle_time_count,
     avg(backlog_age_days)::numeric(12, 4) as avg_backlog_age_days,
     avg(first_response_minutes)::numeric(12, 4) as avg_first_response_minutes,
     avg(handle_time_minutes)::numeric(12, 4) as avg_handle_time_minutes,
@@ -27,4 +31,4 @@ select
         / nullif(sum(case when is_resolved then 1 else 0 end)::numeric, 0)
     )::numeric(12, 4) as first_resolution_rate
 from {{ ref('int_support_cases') }}
-group by 1, 2, 3, 4, 5
+group by 1, 2, 3, 4, 5, 6, 7

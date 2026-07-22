@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/agent/hitl_approval/v1",
   "title": "HITLApproval",
   "description": "Week10 人工审批 checkpoint 记录。高风险动作必须先落 checkpoint，审批后再恢复执行。",

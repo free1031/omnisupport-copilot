@@ -4,8 +4,8 @@ Tree-sitter is the production direction in the Week07 deck. The classroom path
 keeps this dependency optional and falls back to regex-level symbol splitting.
 """
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

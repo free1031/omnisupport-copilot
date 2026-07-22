@@ -14,12 +14,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import shutil
 import struct
 import subprocess
 import wave
-
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MEDIA_DIR = PROJECT_ROOT / "data" / "week07_media"
@@ -134,8 +133,8 @@ def _write_audio(path: Path) -> None:
 
 
 def _write_video(path: Path, audio_path: Path) -> None:
-    from PIL import Image, ImageDraw, ImageFont
     import imageio_ffmpeg
+    from PIL import Image, ImageDraw, ImageFont
 
     _ = audio_path  # Kept for manifest lineage; classroom video uses transcript sidecar.
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"

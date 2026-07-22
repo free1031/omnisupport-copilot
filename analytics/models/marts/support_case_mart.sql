@@ -1,5 +1,6 @@
 select
     ticket_id,
+    tenant_id,
     org_id,
     org_name,
     status,

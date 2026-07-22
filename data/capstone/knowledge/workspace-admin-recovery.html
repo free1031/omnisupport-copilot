@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Workspace administrator recovery</title></head>
+<body>
+<article>
+<h1>Northstar Workspace administrator access recovery</h1>
+<p>Document owner: Identity Operations. Version 4.2. Effective 2026-06-15.</p>
+<h2>When to use this runbook</h2>
+<p>Use this procedure when an administrator enters an SSO login loop, sees repeated sign-in redirects, or loses access after an identity-provider certificate rotation. This runbook applies to Northstar Workspace 4.1 and 4.2.</p>
+<p>如何恢复 Workspace 管理员访问：先确认至少一名 break-glass owner 仍可登录，再核对身份提供商元数据和证书指纹。不要直接删除组织或重置全体成员。</p>
+<h2>Recovery procedure</h2>
+<ol>
+<li>Open the organization audit log and confirm the last successful administrator login.</li>
+<li>Compare the IdP signing certificate fingerprint with the active Workspace SSO configuration.</li>
+<li>If the certificate changed, upload the renewed metadata file and validate it without activating.</li>
+<li>Ask a second administrator to review the organization identifier and redirect URL.</li>
+<li>Activate the validated metadata, invalidate stale authorization sessions, and start a new browser session.</li>
+<li>Verify two administrator accounts and record the change ticket before closing the incident.</li>
+</ol>
+<h2>Evidence and rollback</h2>
+<p>Capture the previous certificate fingerprint, the new fingerprint, validation result, reviewer, and change ticket. If validation fails, restore the previous metadata snapshot. Never paste private keys or session tokens into a support ticket.</p>
+<h2>Error reference</h2>
+<p>WS-AUTH-001 means the SSO assertion could not be validated. WS-PERM-002 means the session contains stale role claims. Refreshing metadata addresses WS-AUTH-001; invalidating the authorization cache addresses WS-PERM-002.</p>
+</article>
+</body></html>

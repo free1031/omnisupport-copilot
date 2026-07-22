@@ -1,0 +1,154 @@
+{
+  "version": "capstone_graph_annotations_v1",
+  "review_status": "approved",
+  "sources": {
+    "doc:capstone:workspace-admin-recovery": {
+      "product_line": "northstar_workspace",
+      "entities": [
+        {"type": "PRODUCT", "name": "Northstar Workspace"},
+        {"type": "ISSUE", "name": "SSO administrator login loop"},
+        {"type": "SYMPTOM", "name": "Repeated sign-in redirect"},
+        {"type": "RESOLUTION", "name": "Validate renewed IdP metadata and invalidate stale sessions"},
+        {"type": "VERSION", "name": "4.2"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "Northstar Workspace", "target_type": "ISSUE", "target": "SSO administrator login loop"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "SSO administrator login loop", "target_type": "SYMPTOM", "target": "Repeated sign-in redirect"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "SSO administrator login loop", "target_type": "RESOLUTION", "target": "Validate renewed IdP metadata and invalidate stale sessions"},
+        {"type": "APPLIES_TO_VERSION", "source_type": "RESOLUTION", "source": "Validate renewed IdP metadata and invalidate stale sessions", "target_type": "VERSION", "target": "4.2"}
+      ]
+    },
+    "doc:capstone:workspace-api-webhook": {
+      "product_line": "northstar_workspace",
+      "entities": [
+        {"type": "PRODUCT", "name": "Northstar Workspace"},
+        {"type": "ISSUE", "name": "Webhook delivery failure"},
+        {"type": "SYMPTOM", "name": "Missing or duplicate webhook events"},
+        {"type": "RESOLUTION", "name": "Verify endpoint and replay one idempotent delivery"},
+        {"type": "VERSION", "name": "3.2"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "Northstar Workspace", "target_type": "ISSUE", "target": "Webhook delivery failure"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Webhook delivery failure", "target_type": "SYMPTOM", "target": "Missing or duplicate webhook events"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Webhook delivery failure", "target_type": "RESOLUTION", "target": "Verify endpoint and replay one idempotent delivery"},
+        {"type": "APPLIES_TO_VERSION", "source_type": "RESOLUTION", "source": "Verify endpoint and replay one idempotent delivery", "target_type": "VERSION", "target": "3.2"}
+      ]
+    },
+    "doc:capstone:edge-gateway-tls-recovery": {
+      "product_line": "northstar_edge_gateway",
+      "entities": [
+        {"type": "PRODUCT", "name": "Northstar Edge Gateway"},
+        {"type": "ISSUE", "name": "Expired intermediate certificate"},
+        {"type": "SYMPTOM", "name": "Certificate verify failed"},
+        {"type": "RESOLUTION", "name": "Install renewed intermediate certificate and reload trust store"},
+        {"type": "VERSION", "name": "3.9"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "Northstar Edge Gateway", "target_type": "ISSUE", "target": "Expired intermediate certificate"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Expired intermediate certificate", "target_type": "SYMPTOM", "target": "Certificate verify failed"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Expired intermediate certificate", "target_type": "RESOLUTION", "target": "Install renewed intermediate certificate and reload trust store"},
+        {"type": "APPLIES_TO_VERSION", "source_type": "RESOLUTION", "source": "Install renewed intermediate certificate and reload trust store", "target_type": "VERSION", "target": "3.9"}
+      ]
+    },
+    "doc:capstone:studio-job-recovery": {
+      "product_line": "northstar_studio",
+      "entities": [
+        {"type": "PRODUCT", "name": "Northstar Studio"},
+        {"type": "ISSUE", "name": "Duplicate scheduled job execution"},
+        {"type": "SYMPTOM", "name": "A scheduled job appears twice"},
+        {"type": "RESOLUTION", "name": "Pause schedule and retain the canonical idempotent run"},
+        {"type": "VERSION", "name": "1.5"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "Northstar Studio", "target_type": "ISSUE", "target": "Duplicate scheduled job execution"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Duplicate scheduled job execution", "target_type": "SYMPTOM", "target": "A scheduled job appears twice"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Duplicate scheduled job execution", "target_type": "RESOLUTION", "target": "Pause schedule and retain the canonical idempotent run"},
+        {"type": "APPLIES_TO_VERSION", "source_type": "RESOLUTION", "source": "Pause schedule and retain the canonical idempotent run", "target_type": "VERSION", "target": "1.5"}
+      ]
+    },
+    "doc:capstone:security-support-boundary": {
+      "product_line": "any",
+      "entities": [
+        {"type": "PRODUCT", "name": "OmniSupport Copilot"},
+        {"type": "ISSUE", "name": "Prompt injection or knowledge poisoning"},
+        {"type": "SYMPTOM", "name": "Retrieved content requests unsafe actions"},
+        {"type": "RESOLUTION", "name": "Quarantine source and replay security evaluation"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "OmniSupport Copilot", "target_type": "ISSUE", "target": "Prompt injection or knowledge poisoning"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Prompt injection or knowledge poisoning", "target_type": "SYMPTOM", "target": "Retrieved content requests unsafe actions"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Prompt injection or knowledge poisoning", "target_type": "RESOLUTION", "target": "Quarantine source and replay security evaluation"}
+      ]
+    },
+    "doc:capstone:support-credit-policy": {
+      "product_line": "any",
+      "entities": [
+        {"type": "PRODUCT", "name": "OmniSupport Copilot"},
+        {"type": "ISSUE", "name": "Unapproved financial adjustment"},
+        {"type": "SYMPTOM", "name": "Credit request lacks approval or evidence"},
+        {"type": "RESOLUTION", "name": "Store checkpoint and require HITL approval"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "OmniSupport Copilot", "target_type": "ISSUE", "target": "Unapproved financial adjustment"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Unapproved financial adjustment", "target_type": "SYMPTOM", "target": "Credit request lacks approval or evidence"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Unapproved financial adjustment", "target_type": "RESOLUTION", "target": "Store checkpoint and require HITL approval"}
+      ]
+    },
+    "audio:week07:call001": {
+      "product_line": "northstar_workspace",
+      "entities": [
+        {"type": "PRODUCT", "name": "Northstar Workspace"},
+        {"type": "ISSUE", "name": "Post-reset workspace access failure"},
+        {"type": "SYMPTOM", "name": "Customer cannot access workspace dashboard"},
+        {"type": "RESOLUTION", "name": "Validate identity and replay recovery steps"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "Northstar Workspace", "target_type": "ISSUE", "target": "Post-reset workspace access failure"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Post-reset workspace access failure", "target_type": "SYMPTOM", "target": "Customer cannot access workspace dashboard"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Post-reset workspace access failure", "target_type": "RESOLUTION", "target": "Validate identity and replay recovery steps"}
+      ]
+    },
+    "doc:week07:pdf001": {
+      "product_line": "northstar_workspace",
+      "entities": [
+        {"type": "PRODUCT", "name": "Northstar Workspace"},
+        {"type": "ISSUE", "name": "Unverified workspace recovery"},
+        {"type": "SYMPTOM", "name": "Recovery request lacks identity evidence"},
+        {"type": "RESOLUTION", "name": "Validate identity and preserve citation lineage"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "Northstar Workspace", "target_type": "ISSUE", "target": "Unverified workspace recovery"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Unverified workspace recovery", "target_type": "SYMPTOM", "target": "Recovery request lacks identity evidence"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Unverified workspace recovery", "target_type": "RESOLUTION", "target": "Validate identity and preserve citation lineage"}
+      ]
+    },
+    "image:week07:ocr001": {
+      "product_line": "northstar_workspace",
+      "entities": [
+        {"type": "PRODUCT", "name": "Northstar Workspace"},
+        {"type": "ISSUE", "name": "Unverified workspace recovery"},
+        {"type": "SYMPTOM", "name": "Recovery request lacks identity evidence"},
+        {"type": "RESOLUTION", "name": "Validate identity and preserve citation lineage"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "Northstar Workspace", "target_type": "ISSUE", "target": "Unverified workspace recovery"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Unverified workspace recovery", "target_type": "SYMPTOM", "target": "Recovery request lacks identity evidence"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Unverified workspace recovery", "target_type": "RESOLUTION", "target": "Validate identity and preserve citation lineage"}
+      ]
+    },
+    "video:week07:demo001": {
+      "product_line": "northstar_workspace",
+      "entities": [
+        {"type": "PRODUCT", "name": "Northstar Workspace"},
+        {"type": "ISSUE", "name": "Unverified workspace recovery"},
+        {"type": "SYMPTOM", "name": "Recovery request lacks identity evidence"},
+        {"type": "RESOLUTION", "name": "Validate identity and preserve citation lineage"}
+      ],
+      "relations": [
+        {"type": "HAS_ISSUE", "source_type": "PRODUCT", "source": "Northstar Workspace", "target_type": "ISSUE", "target": "Unverified workspace recovery"},
+        {"type": "HAS_SYMPTOM", "source_type": "ISSUE", "source": "Unverified workspace recovery", "target_type": "SYMPTOM", "target": "Recovery request lacks identity evidence"},
+        {"type": "RESOLVED_BY", "source_type": "ISSUE", "source": "Unverified workspace recovery", "target_type": "RESOLUTION", "target": "Validate identity and preserve citation lineage"}
+      ]
+    }
+  }
+}

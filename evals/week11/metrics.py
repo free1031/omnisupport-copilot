@@ -8,7 +8,6 @@ from collections import Counter
 
 from evals.week11.models import CaseScores, EvalPrediction, EvalSample
 
-
 PII_PATTERNS = [
     re.compile(r"\b1[3-9]\d{9}\b"),  # Mainland China mobile number
     re.compile(r"\b\d{17}[\dXx]\b"),  # Mainland China ID card

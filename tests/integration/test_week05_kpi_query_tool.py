@@ -187,6 +187,44 @@ async def test_query_support_kpis_applies_org_scope_filter(monkeypatch, kpi_quer
 
 
 @pytest.mark.asyncio
+async def test_query_support_kpis_applies_trusted_tenant_scope(monkeypatch, kpi_query_module):
+    captured = {}
+
+    class FakeConnection:
+        async def fetch(self, query, *params):
+            captured["query"] = query
+            captured["params"] = params
+            return []
+
+        async def close(self):
+            pass
+
+    async def fake_connect(dsn):
+        return FakeConnection()
+
+    monkeypatch.setattr(kpi_query_module.asyncpg, "connect", fake_connect)
+    payload = {
+        "actor_role": "admin",
+        "actor_id": "admin-pytest",
+        "tenant_id": "northstar-demo",
+        "metrics": ["ticket_count"],
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-30",
+        "filters": {"data_release_id": "data-capstone-v1"},
+        "limit": 10,
+    }
+
+    result = await kpi_query_module.query_support_kpis(payload, registry_path=REGISTRY_PATH)
+
+    assert result["allowed"] is True
+    assert "tenant_id =" in captured["query"]
+    assert "data_release_id = any" in captured["query"]
+    assert "northstar-demo" in captured["params"]
+    assert ["data-capstone-v1"] in captured["params"]
+    assert "tenant_scope_filter" in result["policy_applied"]
+
+
+@pytest.mark.asyncio
 async def test_query_support_kpis_allows_experimental_metric_with_ack(monkeypatch, kpi_query_module):
     captured = {}
 

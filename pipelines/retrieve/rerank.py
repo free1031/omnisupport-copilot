@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAG_API_PATH = PROJECT_ROOT / "services" / "rag_api"
 if str(RAG_API_PATH) not in sys.path:
