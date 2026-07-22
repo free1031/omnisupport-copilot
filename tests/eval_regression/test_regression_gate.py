@@ -8,10 +8,10 @@
     RAG_API_URL=http://localhost:8000 pytest tests/eval_regression/ -v
 """
 
-import json
 import os
-import pytest
 from pathlib import Path
+
+import pytest
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 EVAL_SET = PROJECT_ROOT / "evals" / "sets" / "workspace_qa_v1.jsonl"

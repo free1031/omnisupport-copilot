@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 
 from pipelines.parse_normalize.models import SourceDocument, sha256_bytes, stable_id
 
-
 BINARY_ASSET_TYPES = {"pdf", "image", "audio", "video"}
 TEXT_SIDECAR_FIELDS = {
     "transcript": ("transcript_object_path", "audio_track_transcript_path"),

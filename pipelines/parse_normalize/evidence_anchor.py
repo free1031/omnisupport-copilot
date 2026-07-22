@@ -1,6 +1,12 @@
 """Evidence anchor generation for Week07 chunks."""
 
-from pipelines.parse_normalize.models import DocumentChunk, EvidenceAnchor, ParsedSection, stable_id, utc_now_iso
+from pipelines.parse_normalize.models import (
+    DocumentChunk,
+    EvidenceAnchor,
+    ParsedSection,
+    stable_id,
+    utc_now_iso,
+)
 
 
 def _sections_by_id(sections: list[ParsedSection]) -> dict[str, ParsedSection]:

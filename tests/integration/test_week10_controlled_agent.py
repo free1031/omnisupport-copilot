@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from agent.copilot import ControlledAgent
 from tools.fallback import FallbackChain
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 TOOL_API_PATH = PROJECT_ROOT / "services" / "tool_api"
 CONTRACTS_ROOT = PROJECT_ROOT / "contracts" / "tools" / "tools"

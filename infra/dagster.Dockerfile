@@ -19,6 +19,7 @@ COPY observability ./observability
 COPY agent ./agent
 COPY tools ./tools
 COPY evals ./evals
+COPY scripts ./scripts
 
 RUN pip install --no-cache-dir \
     -r /tmp/rag_api_requirements.txt \

@@ -1,13 +1,13 @@
 """Parser adapter routing for Week07 document and media normalization."""
 
-from io import BytesIO
 import json
-from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import wave
-import shutil
+from io import BytesIO
+from pathlib import Path
 
 from pipelines.parse.marker_pipeline import parse_pdf_with_idp
 from pipelines.parse_normalize.models import (
@@ -17,7 +17,6 @@ from pipelines.parse_normalize.models import (
     SourceDocument,
     stable_id,
 )
-
 
 SECTION_SPLIT_RE = re.compile(r"\n\s*\n+")
 TEXT_ASSET_TYPES = {"html", "faq", "release_notes", "api_doc", "community_post", "other"}
@@ -507,8 +506,8 @@ def _parse_transcript(text: str) -> list[dict]:
 
 def _ocr_bytes(raw_bytes: bytes, warnings: list[str], warning_prefix: str) -> str:
     try:
-        from PIL import Image
         import pytesseract
+        from PIL import Image
     except Exception as exc:
         warnings.append(f"{warning_prefix}_ocr_dependency_unavailable")
         warnings.append(type(exc).__name__)

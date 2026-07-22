@@ -10,8 +10,7 @@
 import argparse
 import json
 import random
-import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # ── 业务世界观配置 ─────────────────────────────────────────────────────────────
@@ -173,7 +172,7 @@ def generate_ticket(seq: int, start_date: datetime) -> dict:
     return {
         "ticket_id": ticket_id,
         "schema_version": "ticket_v1",
-        "source_id": f"structured:tickets:seed_batch_001",
+        "source_id": "structured:tickets:seed_batch_001",
         "ingest_batch_id": "batch-20260331-001",
         "customer_id": customer_id,
         "org_id": org_id,

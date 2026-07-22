@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "omni://contracts/product/copilot_message/v1",
+  "title": "CopilotMessage",
+  "type": "object",
+  "required": [
+    "message_id", "conversation_id", "tenant_id", "role", "content",
+    "citations", "evidence_ids", "trace_id", "release_id", "created_at"
+  ],
+  "properties": {
+    "message_id": {"type": "string", "pattern": "^msg_[a-f0-9]{32}$"},
+    "conversation_id": {"type": "string", "pattern": "^conv_[a-f0-9]{32}$"},
+    "tenant_id": {"type": "string", "minLength": 1},
+    "actor_id": {"type": ["string", "null"]},
+    "role": {"type": "string", "enum": ["user", "assistant", "system", "tool"]},
+    "content": {"type": "string", "minLength": 1},
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["evidence_id", "chunk_id", "doc_id", "source_id"],
+        "properties": {
+          "evidence_id": {"type": "string"},
+          "chunk_id": {"type": "string"},
+          "doc_id": {"type": "string"},
+          "source_id": {"type": "string"},
+          "title": {"type": ["string", "null"]},
+          "page_no": {"type": ["integer", "null"]},
+          "section_path": {"type": ["string", "null"]},
+          "source_url": {"type": ["string", "null"]},
+          "quote": {"type": ["string", "null"]},
+          "score": {"type": ["number", "null"]}
+        },
+        "additionalProperties": true
+      }
+    },
+    "evidence_ids": {"type": "array", "items": {"type": "string"}},
+    "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "abstain_reason": {"type": ["string", "null"]},
+    "trace_id": {"type": ["string", "null"]},
+    "release_id": {"type": ["string", "null"]},
+    "data_release_id": {"type": ["string", "null"]},
+    "index_release_id": {"type": ["string", "null"]},
+    "prompt_release_id": {"type": ["string", "null"]},
+    "graph_release_id": {"type": ["string", "null"]},
+    "generation_mode": {
+      "type": ["string", "null"],
+      "enum": ["llm", "deterministic_fallback", "not_invoked", null]
+    },
+    "generation_provider": {"type": ["string", "null"]},
+    "generation_model": {"type": ["string", "null"]},
+    "latency_ms": {"type": ["integer", "null"], "minimum": 0},
+    "created_at": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": true
+}

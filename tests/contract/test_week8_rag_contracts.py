@@ -2,9 +2,8 @@ import json
 from pathlib import Path
 
 import jsonschema
-from jsonschema import RefResolver
 import pytest
-
+from referencing import Registry, Resource
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SERVICE_CONTRACTS = PROJECT_ROOT / "contracts" / "service"
@@ -18,15 +17,16 @@ def load_json(path: Path) -> dict:
 
 def validator(schema_name: str) -> jsonschema.Draft202012Validator:
     schema = load_json(SERVICE_CONTRACTS / schema_name)
-    store = {
-        "citation.schema.json": load_json(SERVICE_CONTRACTS / "citation.schema.json"),
-        "retrieval_debug.schema.json": load_json(
-            SERVICE_CONTRACTS / "retrieval_debug.schema.json"
-        ),
-    }
+    referenced = [
+        load_json(SERVICE_CONTRACTS / "citation.schema.json"),
+        load_json(SERVICE_CONTRACTS / "retrieval_debug.schema.json"),
+    ]
+    registry = Registry().with_resources(
+        (document["$id"], Resource.from_contents(document)) for document in referenced
+    )
     return jsonschema.Draft202012Validator(
         schema,
-        resolver=RefResolver.from_schema(schema, store=store),
+        registry=registry,
     )
 
 

@@ -28,6 +28,7 @@ class MetricDefinition:
     quality_tests: tuple[str, ...]
     numerator: str | None = None
     denominator: str | None = None
+    weight_column: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ def load_metric_registry(path: str | Path | None = None) -> MetricRegistry:
             quality_tests=tuple(item.get("quality_tests", [])),
             numerator=item.get("numerator"),
             denominator=item.get("denominator"),
+            weight_column=item.get("weight_column"),
         )
         for item in data.get("metrics", [])
     }

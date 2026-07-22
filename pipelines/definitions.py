@@ -6,6 +6,7 @@ Dagster dev 命令会自动发现此文件。
 
 from dagster import Definitions, load_asset_checks_from_modules, load_assets_from_modules
 
+from pipelines.capstone import assets as capstone_assets
 from pipelines.data_factory import assets as data_factory_assets
 from pipelines.data_factory import checks as data_factory_checks
 from pipelines.data_factory.jobs import week06_data_factory_job
@@ -25,6 +26,7 @@ all_assets = load_assets_from_modules(
         data_factory_assets,
         indexing_assets,
         graph_assets,
+        capstone_assets,
     ]
 )
 

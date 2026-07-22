@@ -5,6 +5,7 @@ with source as (
 renamed as (
     select
         ticket_id,
+        tenant_id,
         customer_id,
         org_id,
         lower(status::text) as status,

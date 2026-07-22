@@ -264,6 +264,10 @@ Week05 Tool API smoke test after `dbt build`:
 ```bash
 curl -s -X POST http://localhost:8001/api/v1/tools/query_support_kpis \
   -H 'Content-Type: application/json' \
+  -H 'X-Service-Token: dev-internal-token-change-in-prod' \
+  -H 'X-Actor-ID: podman-smoke' \
+  -H 'X-Actor-Role: instructor' \
+  -H 'X-Tenant-ID: course-legacy' \
   -d '{
     "actor_role": "instructor",
     "actor_id": "podman-smoke",

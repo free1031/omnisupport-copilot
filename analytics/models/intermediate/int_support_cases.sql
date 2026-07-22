@@ -17,6 +17,7 @@ first_comments as (
 joined as (
     select
         t.ticket_id,
+        t.tenant_id,
         t.customer_id,
         t.org_id,
         c.org_name,

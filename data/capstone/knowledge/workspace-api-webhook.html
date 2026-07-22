@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Workspace webhook delivery</title></head>
+<body><article>
+<h1>Workspace webhook delivery troubleshooting</h1>
+<p>Version 3.2. Support visibility: internal. Error codes: WS-WEBHOOK-005 and WS-API-404.</p>
+<h2>Symptom</h2>
+<p>A customer reports that a webhook endpoint receives no events, receives duplicate events, or returns HTTP 404 after a routing change.</p>
+<h2>排查顺序</h2>
+<ol><li>Verify the endpoint is HTTPS and resolves from the public internet.</li><li>Check the delivery log for status code, attempt count, and request identifier.</li><li>Confirm the subscribed event names and organization scope.</li><li>Replay one delivery with the same event identifier. Consumers must deduplicate by event identifier.</li><li>Rotate the signing secret only after the consumer accepts both current and next secrets.</li></ol>
+<h2>Safety boundary</h2>
+<p>Support agents may replay a single failed delivery. Bulk replay, secret rotation, and endpoint ownership changes require a support lead. Webhook payloads may contain customer identifiers and must not be copied into public chat.</p>
+<h2>Success criteria</h2>
+<p>The endpoint returns a 2xx response within ten seconds, the delivery log records a completed attempt, and the consumer confirms exactly one business event.</p>
+</article></body></html>

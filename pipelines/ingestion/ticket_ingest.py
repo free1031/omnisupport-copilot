@@ -151,16 +151,18 @@ async def upsert_ticket_silver(conn, ticket: dict, batch_id: str):
     # 确保 customer_dim 记录存在（upsert）
     await conn.execute(
         """
-        INSERT INTO customer_dim (customer_id, org_id, org_name, sla_tier)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO customer_dim (customer_id, org_id, org_name, sla_tier, tenant_id)
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (customer_id) DO UPDATE
             SET sla_tier = EXCLUDED.sla_tier,
+                tenant_id = EXCLUDED.tenant_id,
                 updated_at = NOW()
         """,
         ticket.get("customer_id"),
         ticket.get("org_id"),
         ticket.get("org_id", ""),   # org_name 未在 ticket 中，用 org_id 代替
         ticket.get("sla_tier", "standard"),
+        ticket.get("tenant_id", "course-legacy"),
     )
 
     await conn.execute(
@@ -170,15 +172,33 @@ async def upsert_ticket_silver(conn, ticket: dict, batch_id: str):
             product_line, product_version, subject,
             error_codes, asset_ids, assignee_id,
             sla_tier, sla_due_at, created_at, updated_at, resolved_at,
-            pii_level, pii_redacted, data_release_id, ingest_batch_id, schema_version
+            pii_level, pii_redacted, data_release_id, ingest_batch_id, schema_version, tenant_id
         ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23
         )
         ON CONFLICT (ticket_id) DO UPDATE SET
+            customer_id   = EXCLUDED.customer_id,
+            org_id        = EXCLUDED.org_id,
             status        = EXCLUDED.status,
+            priority      = EXCLUDED.priority,
+            category      = EXCLUDED.category,
+            product_line  = EXCLUDED.product_line,
+            product_version = EXCLUDED.product_version,
+            subject       = EXCLUDED.subject,
+            error_codes   = EXCLUDED.error_codes,
+            asset_ids     = EXCLUDED.asset_ids,
+            assignee_id   = EXCLUDED.assignee_id,
+            sla_tier      = EXCLUDED.sla_tier,
+            sla_due_at    = EXCLUDED.sla_due_at,
+            created_at    = EXCLUDED.created_at,
             updated_at    = EXCLUDED.updated_at,
             resolved_at   = EXCLUDED.resolved_at,
-            data_release_id = EXCLUDED.data_release_id
+            pii_level     = EXCLUDED.pii_level,
+            pii_redacted  = EXCLUDED.pii_redacted,
+            data_release_id = EXCLUDED.data_release_id,
+            ingest_batch_id = EXCLUDED.ingest_batch_id,
+            schema_version = EXCLUDED.schema_version,
+            tenant_id = EXCLUDED.tenant_id
         """,
         ticket["ticket_id"],
         ticket.get("customer_id"),
@@ -202,6 +222,7 @@ async def upsert_ticket_silver(conn, ticket: dict, batch_id: str):
         ticket.get("data_release_id", "data-v0.1.0"),
         batch_id,
         ticket.get("schema_version", "ticket_v1"),
+        ticket.get("tenant_id", "course-legacy"),
     )
 
 

@@ -5,7 +5,6 @@ from pathlib import Path
 import jsonschema
 import yaml
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SKILLS_ROOT = PROJECT_ROOT / "skills"
 SKILL_SCHEMA = PROJECT_ROOT / "contracts" / "skills" / "skill_pack.schema.json"

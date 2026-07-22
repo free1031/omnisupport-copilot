@@ -11,6 +11,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import re
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -33,6 +34,7 @@ TOOL_CONTRACT_CANDIDATES = [
 SAFE_COLUMNS = {
     "metric_date",
     "metric_name",
+    "tenant_id",
     "product_line",
     "priority",
     "org_id",
@@ -42,6 +44,7 @@ SAFE_COLUMNS = {
     "generated_at",
 }
 BASE_POLICIES = ["tool_contract", "metric_registry", "safe_view", "parameterized_sql"]
+SAFE_IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def _load_input_schema() -> dict[str, Any]:
@@ -256,14 +259,7 @@ def _validate_request(payload: dict[str, Any], registry: MetricRegistry) -> dict
 
 def _build_query(payload: dict[str, Any], registry: MetricRegistry) -> tuple[str, list[Any]]:
     selected_dimensions = payload.get("dimensions", [])
-    output_columns = [
-        "metric_date",
-        "metric_name",
-        *selected_dimensions,
-        "metric_value",
-        "data_release_id",
-        "generated_at",
-    ]
+    output_columns = ["metric_date", "metric_name", *selected_dimensions, "data_release_id"]
     invalid_columns = [column for column in output_columns if column not in SAFE_COLUMNS]
     if invalid_columns:
         raise ValueError(f"unsafe output columns: {', '.join(invalid_columns)}")
@@ -273,6 +269,9 @@ def _build_query(payload: dict[str, Any], registry: MetricRegistry) -> tuple[str
         "metric_name = any($1::text[])",
         "metric_date between $2::date and $3::date",
     ]
+    if payload.get("tenant_id"):
+        params.append(str(payload["tenant_id"]))
+        where.append(f"tenant_id = ${len(params)}")
     for field, value in payload.get("filters", {}).items():
         params.append([str(item) for item in value] if isinstance(value, list) else [str(value)])
         where.append(f"{field} = any(${len(params)}::text[])")
@@ -281,14 +280,47 @@ def _build_query(payload: dict[str, Any], registry: MetricRegistry) -> tuple[str
         where.append(f"org_id = any(${len(params)}::text[])")
 
     params.append(int(payload.get("limit", 100)))
-    columns_sql = ", ".join(output_columns)
+    group_columns_sql = ", ".join(output_columns)
     where_sql = " and ".join(where)
     order_sql = ", ".join(["metric_date", "metric_name", *selected_dimensions])
 
+    aggregation_cases: list[str] = []
+    for name, metric in registry.metrics.items():
+        if not SAFE_IDENTIFIER.fullmatch(name):
+            raise ValueError(f"unsafe metric identifier: {name}")
+        if metric.numerator and metric.denominator:
+            for column in (metric.numerator, metric.denominator):
+                if not SAFE_IDENTIFIER.fullmatch(column):
+                    raise ValueError(f"unsafe metric support column: {column}")
+            expression = (
+                f"sum({metric.numerator})::numeric / "
+                f"nullif(sum({metric.denominator})::numeric, 0)"
+            )
+        elif metric.weight_column:
+            if not SAFE_IDENTIFIER.fullmatch(metric.weight_column):
+                raise ValueError(f"unsafe metric weight column: {metric.weight_column}")
+            expression = (
+                f"sum(metric_value * {metric.weight_column})::numeric / "
+                f"nullif(sum({metric.weight_column})::numeric, 0)"
+            )
+        elif metric.aggregation == "sum":
+            expression = "sum(metric_value)"
+        else:
+            expression = "avg(metric_value)"
+        aggregation_cases.append(f"when metric_name = '{name}' then {expression}")
+    metric_value_sql = "case " + " ".join(aggregation_cases) + " else null end"
+
     query = f"""
-        select {columns_sql}
-        from analytics.{registry.safe_view}
-        where {where_sql}
+        with filtered as (
+            select *
+            from analytics.{registry.safe_view}
+            where {where_sql}
+        )
+        select {group_columns_sql},
+               {metric_value_sql} as metric_value,
+               max(generated_at) as generated_at
+        from filtered
+        group by {group_columns_sql}
         order by {order_sql}
         limit ${len(params)}
     """
@@ -325,6 +357,9 @@ async def query_support_kpis(
 
     rows = [{key: _json_safe(value) for key, value in record.items()} for record in records]
     policy_applied = list(BASE_POLICIES)
+    policy_applied.append("semantic_aggregation")
+    if payload.get("tenant_id"):
+        policy_applied.append("tenant_scope_filter")
     if payload.get("actor_role") != "admin" and payload.get("actor_org_ids"):
         policy_applied.append("org_scope_filter")
     if any(registry.metrics[name].definition_status == "experimental_proxy" for name in payload["metrics"]):

@@ -6,9 +6,8 @@ breaks, and records character spans so downstream evidence can cite where a
 chunk came from.
 """
 
-from dataclasses import dataclass, field
 import re
-
+from dataclasses import dataclass, field
 
 BOUNDARY_RE = re.compile(r"(?<=[。！？.!?])\s+|\n{2,}")
 HARD_BOUNDARY_TYPES = {"table", "code", "image", "transcript"}

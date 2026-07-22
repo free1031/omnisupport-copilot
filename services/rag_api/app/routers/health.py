@@ -1,8 +1,11 @@
-"""健康检查端点"""
+"""RAG service readiness checks backed by the active release state."""
 
+import asyncpg
 from fastapi import APIRouter
-from app.models.rag_models import HealthResponse
+
 from app.config import settings
+from app.llm import resolve_llm_runtime
+from app.models.rag_models import HealthResponse
 
 router = APIRouter(tags=["system"])
 
@@ -15,14 +18,22 @@ async def health_check() -> HealthResponse:
     - **status**: ok / degraded / down
     - **checks**: 各组件的健康状态
     """
-    checks = {
+    database_status, index_status = await _check_storage()
+    llm_runtime = resolve_llm_runtime()
+    checks: dict[str, str] = {
         "api": "ok",
-        "database": await _check_db(),
-        "vector_index": "pending",  # Week08 接入
-        "llm": "pending",           # Week08 接入
+        "database": database_status,
+        "vector_index": index_status,
+        "llm": "external" if llm_runtime.configured else "deterministic_fallback",
+        "llm_provider": llm_runtime.provider,
+        "llm_model": llm_runtime.model,
     }
 
-    overall = "ok" if all(v == "ok" for v in checks.values() if v != "pending") else "degraded"
+    overall = (
+        "ok"
+        if database_status == "ok" and index_status == "ok"
+        else "degraded"
+    )
 
     return HealthResponse(
         status=overall,
@@ -33,15 +44,37 @@ async def health_check() -> HealthResponse:
     )
 
 
-async def _check_db() -> str:
-    """简单数据库连接检查"""
+async def _check_storage() -> tuple[str, str]:
+    """Check PostgreSQL and the exact data/index release served by this API."""
+    conn: asyncpg.Connection | None = None
     try:
-        import asyncpg
         conn = await asyncpg.connect(
             settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
         )
-        await conn.execute("SELECT 1")
-        await conn.close()
-        return "ok"
+        row = await conn.fetchrow(
+            """
+            SELECT
+                im.quality_gate,
+                COUNT(ks.section_id) FILTER (WHERE ks.embedding IS NOT NULL) AS ready_chunks
+            FROM index_manifest im
+            LEFT JOIN knowledge_section ks
+              ON ks.index_release_id = im.index_release_id
+             AND ks.data_release_id = im.data_release_id
+            WHERE im.index_release_id = $1
+              AND im.data_release_id = $2
+            GROUP BY im.quality_gate
+            """,
+            settings.index_release_id,
+            settings.data_release_id,
+        )
+        index_ready = bool(
+            row
+            and row["quality_gate"] == "pass"
+            and int(row["ready_chunks"] or 0) > 0
+        )
+        return "ok", "ok" if index_ready else "empty"
     except Exception:
-        return "down"
+        return "down", "unknown"
+    finally:
+        if conn is not None:
+            await conn.close()

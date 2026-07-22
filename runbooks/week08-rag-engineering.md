@@ -106,6 +106,10 @@ Expected: chunks are embedded only if provider output dimension matches the data
 ```bash
 curl -X POST http://localhost:8000/rag/answer \
   -H "Content-Type: application/json" \
+  -H "X-Service-Token: dev-internal-token-change-in-prod" \
+  -H "X-Actor-ID: instructor-local" \
+  -H "X-Actor-Role: instructor" \
+  -H "X-Tenant-ID: course-legacy" \
   -d '{
     "question": "How do I recover an Edge Gateway after firmware upgrade failure?",
     "product_line": "edge-gateway",

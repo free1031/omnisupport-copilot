@@ -17,12 +17,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
 import json
 import logging
-import sys
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -177,10 +175,14 @@ class UnstructuredParser:
 
     def parse(self, file_path: Path, source_id: str, doc_id: str) -> list[ParsedSection]:
         try:
-            from unstructured.partition.auto import partition
             from unstructured.documents.elements import (
-                Title, NarrativeText, Table, ListItem, Image, Header
+                Header,
+                Image,
+                ListItem,
+                Table,
+                Title,
             )
+            from unstructured.partition.auto import partition
         except ImportError:
             logger.warning("Unstructured not installed, using fallback parser")
             return self._fallback_parse(file_path, source_id, doc_id)
@@ -334,7 +336,6 @@ class DocumentParseOrchestrator:
 
     def select_parser(self, asset_type: AssetType):
         pdf_types = {"pdf"}
-        html_types = {"html", "faq", "release_notes", "api_doc", "community_post", "other"}
         if asset_type in pdf_types:
             return self._docling
         return self._unstructured
@@ -417,6 +418,7 @@ class DocumentParseOrchestrator:
 
 async def _run_parse(source_id: str, input_path: Path, asset_type: str, dry_run: bool):
     import uuid as _uuid
+
     from pipelines.ingestion.db import acquire
 
     doc_id = str(_uuid.uuid5(_uuid.NAMESPACE_URL, source_id))

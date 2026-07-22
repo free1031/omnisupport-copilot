@@ -1,5 +1,7 @@
-from pathlib import Path
+# ruff: noqa: E402 - Dagster availability is checked before definitions import
+
 import sys
+from pathlib import Path
 
 import pytest
 

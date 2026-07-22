@@ -4,7 +4,6 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 TOOL_API_PATH = PROJECT_ROOT / "services" / "tool_api"
 SKILLS_ROOT = PROJECT_ROOT / "skills"

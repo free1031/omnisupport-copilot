@@ -182,6 +182,18 @@ def test_week13_serialized_context_only_claims_allowed_evidence():
     assert excluded == ""
 
 
+def test_week13_graph_path_prefers_relation_evidence():
+    entity = GraphEntityRecord(
+        "entity-1", "ISSUE", "Login loop", 1.0, ("evidence-broad",)
+    )
+    relation = GraphRelationRecord(
+        "edge-1", "RESOLVED_BY", "entity-1", "entity-2", 1.0, ("evidence-edge",)
+    )
+    path = GraphPathRecord((entity,), (relation,), 1.0)
+
+    assert path.evidence_ids == ("evidence-edge",)
+
+
 def test_week13_ab_gate_routes_by_category_instead_of_overall_average():
     report = compare_by_category(
         load_paired_cases(AB_CASES),

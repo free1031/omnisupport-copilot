@@ -5,7 +5,6 @@ import jsonschema
 
 from tools.registry import ToolContractRegistry
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 TOOL_SCHEMA = PROJECT_ROOT / "contracts" / "tools" / "tool_contract_schema.json"
 TOOL_CONTRACTS = PROJECT_ROOT / "contracts" / "tools" / "tools"

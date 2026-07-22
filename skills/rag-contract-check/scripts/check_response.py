@@ -7,7 +7,6 @@ import json
 import sys
 from pathlib import Path
 
-
 REQUIRED = ["answer", "citations", "evidence_ids", "release_id", "index_release_id", "prompt_release_id", "trace_id"]
 
 

@@ -22,6 +22,7 @@ COPY evals ./evals
 COPY release ./release
 COPY rollout ./rollout
 COPY governance ./governance
+COPY scripts ./scripts
 COPY tests ./tests
 
 RUN pip install --no-cache-dir \

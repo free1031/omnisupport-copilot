@@ -10,7 +10,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAG_API_PATH = PROJECT_ROOT / "services" / "rag_api"
 
@@ -36,7 +35,6 @@ from app.retrieval import (  # noqa: E402
     reciprocal_rank_fusion,
     vector_search,
 )
-
 
 hybrid_search = hybrid_retrieve
 

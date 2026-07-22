@@ -136,7 +136,7 @@ def ticket_facts(
         # 每条记录对应 ticket_contract.json schema
         context.log.debug(f"[stub] Would normalize: {event_source['source_id']}")
 
-    context.log.info(f"[Week01 stub] ticket_facts: 0 facts (接入 Week03)")
+    context.log.info("[Week01 stub] ticket_facts: 0 facts (接入 Week03)")
 
     return Output(
         facts,

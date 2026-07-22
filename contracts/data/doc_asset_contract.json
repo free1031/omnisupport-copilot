@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/data/doc_asset/v1",
   "title": "DocAssetContract",
   "description": "OmniSupport Copilot — 文档资产数据契约 v1 (PDF / HTML / FAQ / Release Notes)",

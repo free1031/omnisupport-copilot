@@ -1,7 +1,9 @@
-import json
+# ruff: noqa: E402 - repository path is installed before pipeline imports
+
 import asyncio
-from pathlib import Path
+import json
 import sys
+from pathlib import Path
 
 import jsonschema
 import pytest
