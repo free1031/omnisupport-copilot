@@ -3,6 +3,12 @@
 Run every command from the latest `omnisupport-copilot` repository root. Docker and Podman use the
 same code path; Podman users replace `docker compose` with `podman compose`.
 
+![Week14 治理发布控制面文件级执行链](../docs/assets/week14/week14-governed-release-control-plane.png)
+
+Read the diagram before running the commands: Week14 starts from a release spec, generates an
+immutable manifest, runs impact analysis and canary gates, switches the registry pointer atomically,
+and keeps rollback, audit and compliance evidence on the same release chain.
+
 ## 1. Start PostgreSQL and apply additive migrations
 
 ```bash

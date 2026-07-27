@@ -14,6 +14,13 @@ The deployable unit is not one container and not one prompt. It is one immutable
 7. Week11 eval evidence and Week12 business SLO;
 8. staged rollout and red-line policy.
 
+## File-level architecture
+
+![Week14 治理发布控制面文件级执行链](../../assets/week14/week14-governed-release-control-plane.png)
+
+The diagram is the reading order for the code: spec input, manifest generation, impact analysis,
+canary decision, registry pointer, rollback/audit and compliance evidence.
+
 ## File-level path
 
 ```text
