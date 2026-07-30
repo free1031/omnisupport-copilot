@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Studio job recovery</title></head>
+<body><article>
+<h1>Northstar Studio scheduled job recovery</h1>
+<p>Applies to Studio 1.4 and 1.5. Error codes: ST-SCHED-005, ST-EXEC-002, ST-MONITOR-003.</p>
+<h2>Duplicate schedule execution</h2>
+<p>A timezone transition or an outdated schedule revision may cause a job to appear twice. Before rerunning, compare run_id, scheduled_for, workflow revision, and idempotency key.</p>
+<h2>Recovery procedure</h2>
+<ol><li>Pause the schedule without deleting it.</li><li>Identify the canonical run using the earliest accepted idempotency key.</li><li>Cancel only duplicate pending runs; do not terminate a completed business transaction.</li><li>Set the schedule timezone explicitly and publish a new schedule revision.</li><li>Run one canary execution and verify downstream row counts and evidence.</li></ol>
+<h2>Backfill</h2>
+<p>A backfill is a controlled window, not an unrestricted rerun. Record window_start, window_end, source checkpoint, expected partitions, operator, and release_id. Compare completeness after execution.</p>
+<h2>Safety</h2>
+<p>When a workflow can send notifications or write external systems, backfill requires human approval and a destination allowlist.</p>
+</article></body></html>

@@ -33,6 +33,7 @@ COPY observability ./observability
 COPY agent ./agent
 COPY tools ./tools
 COPY evals ./evals
+COPY scripts ./scripts
 
 # 创建 Dagster 运行目录
 RUN mkdir -p /opt/dagster/app /opt/dagster/dagster_home

@@ -26,7 +26,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-omnisupport}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
     networks:
       - omni_net
     healthcheck:
@@ -36,6 +36,46 @@ services:
       retries: 5
     ports:
       - "${POSTGRES_HOST_PORT:-15432}:5432"
+
+  # Explicit additive migration gate for existing and fresh PostgreSQL volumes.
+  db_migrate:
+    image: pgvector/pgvector:pg16
+    container_name: omni_db_migrate
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-omni}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-omnipass}
+      PGDATABASE: ${POSTGRES_DB:-omnisupport}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    networks:
+      - omni_net
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -c "CREATE TABLE IF NOT EXISTS app_schema_migration (version TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
+        for file in /migrations/*.sql; do
+          version=$$(basename "$$file")
+          [ "$$version" = "001_init.sql" ] && continue
+          checksum=$$(sha256sum "$$file" | awk '{print $$1}')
+          stored=$$(psql -v ON_ERROR_STOP=1 -Atc "SELECT checksum FROM app_schema_migration WHERE version = '$$version'")
+          if [ -n "$$stored" ] && [ "$$stored" != "$$checksum" ]; then
+            echo "Migration checksum mismatch: $$version" >&2
+            exit 1
+          fi
+          if [ -z "$$stored" ]; then
+            echo "Applying $$version"
+            psql -v ON_ERROR_STOP=1 --single-transaction \
+              -f "$$file" \
+              -c "INSERT INTO app_schema_migration(version, checksum) VALUES ('$$version', '$$checksum')"
+          fi
+        done
+        echo "Database migrations are current"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 2. MinIO — 对象存储 (S3 兼容), raw zone 与中间制品落盘
@@ -102,6 +142,20 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      KIMI_API_KEY: ${KIMI_API_KEY:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-90}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-internal-token-change-in-prod}
+      REQUIRE_INTERNAL_AUTH: ${REQUIRE_INTERNAL_AUTH:-true}
+      CORS_ORIGINS: '["http://localhost:8010","http://127.0.0.1:8010"]'
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4318
       OTEL_SERVICE_NAME: rag_api
       OTEL_PROJECT_NAME: ${OTEL_PROJECT_NAME:-omnisupport-copilot}
@@ -109,14 +163,21 @@ services:
       OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1.0}
       OTEL_CAPTURE_CONTENT: ${OTEL_CAPTURE_CONTENT:-false}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
-      RELEASE_ID: ${RELEASE_ID:-dev-local}
-      GRAPH_RELEASE_ID: ${GRAPH_RELEASE_ID:-graph-week13-dev-v1}
+      RELEASE_ID: ${CAPSTONE_RELEASE_ID:-capstone-v1.0.0}
+      DATA_RELEASE_ID: ${CAPSTONE_DATA_RELEASE_ID:-data-capstone-v1}
+      INDEX_RELEASE_ID: ${CAPSTONE_INDEX_RELEASE_ID:-index-capstone-v1}
+      PROMPT_RELEASE_ID: ${CAPSTONE_PROMPT_RELEASE_ID:-prompt-capstone-v1}
+      GRAPH_RELEASE_ID: ${CAPSTONE_GRAPH_RELEASE_ID:-graph-capstone-v1}
+      RETRIEVAL_MIN_SCORE: ${RETRIEVAL_MIN_SCORE:-0.015}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-deterministic}
       PYTHONPATH: /app:/workspace
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      db_migrate:
+        condition: service_completed_successfully
       minio:
         condition: service_healthy
       otel_collector:
@@ -126,6 +187,7 @@ services:
     volumes:
       - ../services/rag_api:/app
       - ../services/graph:/workspace/services/graph:ro
+      - ../pipelines:/workspace/pipelines:ro
       - ../observability:/app/observability:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -151,14 +213,19 @@ services:
       OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1.0}
       OTEL_CAPTURE_CONTENT: ${OTEL_CAPTURE_CONTENT:-false}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
-      RELEASE_ID: ${RELEASE_ID:-dev-local}
+      RELEASE_ID: ${CAPSTONE_RELEASE_ID:-capstone-v1.0.0}
+      DATA_RELEASE_ID: ${CAPSTONE_DATA_RELEASE_ID:-data-capstone-v1}
       METRIC_REGISTRY_PATH: /workspace/analytics/metric_registry_v1.yml
       SKILL_REGISTRY_PATH: /workspace/skills
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-internal-token-change-in-prod}
+      REQUIRE_INTERNAL_AUTH: ${REQUIRE_INTERNAL_AUTH:-true}
     ports:
       - "8001:8001"
     depends_on:
       postgres:
         condition: service_healthy
+      db_migrate:
+        condition: service_completed_successfully
       otel_collector:
         condition: service_started
     networks:
@@ -166,6 +233,8 @@ services:
     volumes:
       - ../services/tool_api:/app
       - ../observability:/app/observability:ro
+      - ../agent:/app/agent:ro
+      - ../tools:/app/tools:ro
       - ../analytics:/workspace/analytics:ro
       - ../contracts:/workspace/contracts:ro
       - ../skills:/workspace/skills:ro
@@ -176,7 +245,78 @@ services:
       retries: 5
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 6. Dagster — 资产化编排 (ingestion / parse / lakehouse / indexing)
+  # 6. Product API — authentication, case workspace, conversations and control plane
+  # ─────────────────────────────────────────────────────────────────────────────
+  copilot_api:
+    build:
+      context: ..
+      dockerfile: services/copilot_api/Dockerfile
+    container_name: omni_copilot_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omnipass}@postgres:5432/${POSTGRES_DB:-omnisupport}
+      RAG_API_URL: http://rag_api:8000
+      TOOL_API_URL: http://tool_api:8001
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-internal-token-change-in-prod}
+      AUTH_SIGNING_KEY: ${AUTH_SIGNING_KEY:-dev-auth-key-change-in-prod}
+      DEMO_AGENT_EMAIL: ${DEMO_AGENT_EMAIL:-agent@northstar.demo}
+      DEMO_AGENT_PASSWORD: ${DEMO_AGENT_PASSWORD:-Agent@2026}
+      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@northstar.demo}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-Admin@2026}
+      ENABLE_DEMO_USERS: ${ENABLE_DEMO_USERS:-true}
+      RELEASE_ID: ${CAPSTONE_RELEASE_ID:-capstone-v1.0.0}
+      RELEASE_ENVIRONMENT: ${CAPSTONE_RELEASE_ENVIRONMENT:-dev}
+      DATA_RELEASE_ID: ${CAPSTONE_DATA_RELEASE_ID:-data-capstone-v1}
+      PROMPT_RELEASE_ID: ${CAPSTONE_PROMPT_RELEASE_ID:-prompt-capstone-v1}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4318
+      OTEL_SERVICE_NAME: copilot_api
+      OTEL_PROJECT_NAME: ${OTEL_PROJECT_NAME:-omnisupport-copilot}
+      OTEL_ENVIRONMENT: ${OTEL_ENVIRONMENT:-dev}
+      OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1.0}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db_migrate:
+        condition: service_completed_successfully
+      rag_api:
+        condition: service_healthy
+      tool_api:
+        condition: service_healthy
+      otel_collector:
+        condition: service_started
+    networks:
+      - omni_net
+    volumes:
+      - ../services/copilot_api:/app
+      - ../observability:/app/observability:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 7. Product Console — real support workspace served behind same-origin API proxy
+  # ─────────────────────────────────────────────────────────────────────────────
+  copilot_console:
+    build:
+      context: ..
+      dockerfile: apps/copilot_console/Dockerfile
+    container_name: omni_copilot_console
+    restart: unless-stopped
+    ports:
+      - "8010:80"
+    depends_on:
+      copilot_api:
+        condition: service_healthy
+    networks:
+      - omni_net
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 8. Dagster — 资产化编排 (ingestion / parse / lakehouse / indexing)
   # ─────────────────────────────────────────────────────────────────────────────
   dagster:
     build:
@@ -239,11 +379,24 @@ services:
       WEEK07_PARSE_DRY_RUN: ${WEEK07_PARSE_DRY_RUN:-true}
       WEEK13_GRAPH_RELEASE_ID: ${WEEK13_GRAPH_RELEASE_ID:-graph-week13-dev-v1}
       WEEK13_GRAPH_SOURCE_PATH: ${WEEK13_GRAPH_SOURCE_PATH:-/workspace/data/week13/graph_source_chunks_v1.jsonl}
+      WEEK15_PROJECT_ROOT: /workspace
+      CAPSTONE_TICKET_COUNT: ${CAPSTONE_TICKET_COUNT:-240}
+      CAPSTONE_AS_OF: ${CAPSTONE_AS_OF:-2026-07-21T00:00:00Z}
+      CAPSTONE_RELEASE_ID: ${CAPSTONE_RELEASE_ID:-capstone-v1.0.0}
+      CAPSTONE_DATA_RELEASE_ID: ${CAPSTONE_DATA_RELEASE_ID:-data-capstone-v1}
+      CAPSTONE_INDEX_RELEASE_ID: ${CAPSTONE_INDEX_RELEASE_ID:-index-capstone-v1}
+      CAPSTONE_PROMPT_RELEASE_ID: ${CAPSTONE_PROMPT_RELEASE_ID:-prompt-capstone-v1}
+      CAPSTONE_GRAPH_RELEASE_ID: ${CAPSTONE_GRAPH_RELEASE_ID:-graph-capstone-v1}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-deterministic}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
     ports:
       - "49152:3000"
     depends_on:
       postgres:
         condition: service_healthy
+      db_migrate:
+        condition: service_completed_successfully
       minio:
         condition: service_healthy
     networks:
@@ -254,13 +407,16 @@ services:
       - ../contracts:/workspace/contracts:ro
       - ../docs:/workspace/docs:ro
       - ../runbooks:/workspace/runbooks:ro
-      - ../analytics:/workspace/analytics:ro
-      - ../data:/workspace/data:ro
+      - ../analytics:/workspace/analytics
+      - ../data:/workspace/data
       - ../reports:/workspace/reports
+      - ../artifacts:/workspace/artifacts
+      - ../scripts:/workspace/scripts:ro
+      - ../infra/migrations:/workspace/infra/migrations:ro
       - dagster_data:/opt/dagster/dagster_home
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 7. OpenTelemetry Collector — 统一 trace / metric / log 采集
+  # 9. OpenTelemetry Collector — 统一 trace / metric / log 采集
   # ─────────────────────────────────────────────────────────────────────────────
   otel_collector:
     image: otel/opentelemetry-collector-contrib:0.149.0
@@ -280,7 +436,7 @@ services:
         condition: service_healthy
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 8. Phoenix (Arize) — AI 请求可观测 + bad case replay
+  # 10. Phoenix (Arize) — AI 请求可观测 + bad case replay
   # ─────────────────────────────────────────────────────────────────────────────
   phoenix:
     image: arizephoenix/phoenix:version-14.2.1
@@ -304,7 +460,7 @@ services:
       start_period: 10s
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 9. Ticket Simulator — 工单模拟器 / seed loader
+  # 11. Ticket Simulator — 工单模拟器 / seed loader
   # ─────────────────────────────────────────────────────────────────────────────
   ticket_simulator:
     build:
@@ -319,6 +475,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db_migrate:
+        condition: service_completed_successfully
     networks:
       - omni_net
     volumes:
@@ -326,7 +484,7 @@ services:
       - ../data/canonization:/canonization:ro
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 10. Devbox — 无本地 Python 依赖的本地验证容器
+  # 12. Devbox — 无本地 Python 依赖的本地验证容器
   # ─────────────────────────────────────────────────────────────────────────────
   devbox:
     build:
@@ -393,6 +551,63 @@ services:
       OTEL_CAPTURE_CONTENT: ${OTEL_CAPTURE_CONTENT:-false}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       PHOENIX_BASE_URL: http://phoenix:6006
+      CAPSTONE_TICKET_COUNT: ${CAPSTONE_TICKET_COUNT:-240}
+      CAPSTONE_AS_OF: ${CAPSTONE_AS_OF:-2026-07-21T00:00:00Z}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-deterministic}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-internal-token-change-in-prod}
+    volumes:
+      - ..:/workspace
+    networks:
+      - omni_net
+
+  # One-shot real data and release bootstrap. Run with: --profile capstone up capstone_bootstrap
+  capstone_bootstrap:
+    build:
+      context: ..
+      dockerfile: infra/devbox.Dockerfile
+    container_name: omni_capstone_bootstrap
+    profiles: ["capstone"]
+    working_dir: /workspace
+    command: python -m scripts.capstone.bootstrap --root /workspace --stage all
+    environment:
+      PYTHONPATH: /workspace
+      DATABASE_URL: postgresql://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omnipass}@postgres:5432/${POSTGRES_DB:-omnisupport}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      POSTGRES_USER: ${POSTGRES_USER:-omni}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-omnipass}
+      POSTGRES_DB: ${POSTGRES_DB:-omnisupport}
+      DBT_TARGET: ${DBT_TARGET:-dev}
+      DBT_POSTGRES_HOST: postgres
+      DBT_POSTGRES_PORT: 5432
+      WEEK05_DATA_RELEASE_ID: ${CAPSTONE_DATA_RELEASE_ID:-data-capstone-v1}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-deterministic}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      CAPSTONE_TICKET_COUNT: ${CAPSTONE_TICKET_COUNT:-240}
+      CAPSTONE_AS_OF: ${CAPSTONE_AS_OF:-2026-07-21T00:00:00Z}
+      CAPSTONE_RELEASE_ID: ${CAPSTONE_RELEASE_ID:-capstone-v1.0.0}
+      CAPSTONE_DATA_RELEASE_ID: ${CAPSTONE_DATA_RELEASE_ID:-data-capstone-v1}
+      CAPSTONE_INDEX_RELEASE_ID: ${CAPSTONE_INDEX_RELEASE_ID:-index-capstone-v1}
+      CAPSTONE_PROMPT_RELEASE_ID: ${CAPSTONE_PROMPT_RELEASE_ID:-prompt-capstone-v1}
+      CAPSTONE_GRAPH_RELEASE_ID: ${CAPSTONE_GRAPH_RELEASE_ID:-graph-capstone-v1}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel_collector:4318
+      OTEL_SERVICE_NAME: capstone_bootstrap
+      OTEL_PROJECT_NAME: ${OTEL_PROJECT_NAME:-omnisupport-copilot}
+      OTEL_ENVIRONMENT: ${OTEL_ENVIRONMENT:-dev}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db_migrate:
+        condition: service_completed_successfully
+      minio_init:
+        condition: service_completed_successfully
+      otel_collector:
+        condition: service_started
     volumes:
       - ..:/workspace
     networks:

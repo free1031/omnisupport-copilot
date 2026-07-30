@@ -17,6 +17,12 @@ class SourceChunk:
     product_line: str = "any"
     visibility_scope: str = "internal"
     annotations: dict[str, Any] = field(default_factory=dict)
+    section_path: str = ""
+    page_no: int | None = None
+    title: str | None = None
+    bbox: str | None = None
+    source_url: str | None = None
+    doc_version: str | None = None
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "SourceChunk":
@@ -41,6 +47,14 @@ class SourceChunk:
             product_line=str(data.get("product_line") or "any"),
             visibility_scope=str(data.get("visibility_scope") or "internal"),
             annotations=dict(data.get("annotations") or {}),
+            section_path=str(data.get("section_path") or ""),
+            page_no=int(data["page_no"]) if data.get("page_no") is not None else None,
+            title=str(data["title"]) if data.get("title") is not None else None,
+            bbox=str(data["bbox"]) if data.get("bbox") is not None else None,
+            source_url=str(data["source_url"]) if data.get("source_url") is not None else None,
+            doc_version=(
+                str(data["doc_version"]) if data.get("doc_version") is not None else None
+            ),
         )
 
 

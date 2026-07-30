@@ -71,10 +71,7 @@ class GraphRetriever:
                 limit=top_k,
             )
 
-        evidence_ids = sorted(
-            {evidence_id for path in paths for evidence_id in path.evidence_ids}
-            | {evidence_id for community in communities for evidence_id in community.evidence_ids}
-        )
+        evidence_ids = _ordered_evidence_ids(paths, communities)
         chunks = await self.store.load_evidence(
             evidence_ids,
             graph_release_id=graph_release_id,
@@ -98,3 +95,15 @@ class GraphRetriever:
             serialized_context=serialize_graph_context(paths, communities),
             warnings=warnings,
         )
+
+
+def _ordered_evidence_ids(paths, communities) -> list[str]:
+    """Preserve graph relevance order instead of sorting opaque evidence IDs."""
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for item in [*sorted(paths, key=lambda value: value.score, reverse=True), *communities]:
+        for evidence_id in item.evidence_ids:
+            if evidence_id not in seen:
+                ordered.append(evidence_id)
+                seen.add(evidence_id)
+    return ordered

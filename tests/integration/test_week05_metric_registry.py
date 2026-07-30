@@ -1,5 +1,5 @@
-from pathlib import Path
 from copy import deepcopy
+from pathlib import Path
 
 from analytics.scripts.validate_metric_registry import load_registry, validate_registry
 

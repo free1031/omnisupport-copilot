@@ -21,9 +21,10 @@ Week01 默认走 **Docker-only** 路线。学员不需要先配置本地 Python�
 - 现代浏览器（访问 Dagster / MinIO / Phoenix）
 
 可选：
-- `ANTHROPIC_API_KEY`
-  - 留空：可完成 Week01 工程基线验证，RAG API 返回 fallback 响应
-  - 填写：可继续验证真实生成链路
+- `LLM_PROVIDER` + 对应密钥
+  - 留空或设为 `auto` 且没有密钥：RAG API 明确返回 deterministic fallback
+  - 可选 `ollama / anthropic / openai / deepseek / qwen / kimi`，业务代码无需切换
+  - 本地 Ollama 示例及云模型配置见 [企业级 Capstone Runbook](runbooks/enterprise-capstone.md#7-本地可复现模式与真实模型模式)
 
 支持环境：
 - macOS Apple Silicon / Intel
@@ -48,6 +49,35 @@ Docker Desktop 受限环境：
 说明：
 - Student Core Pack 的目标规模是 `1,200–1,800` 源资产、`6–12 万` chunk，面向单机 Docker Compose。
 - Instructor Scale Pack 的目标规模是 `6,000–10,000` 源资产、`20–50 万` chunk，更适合共享实验环境或高配机器。
+
+---
+
+## 企业级毕业项目：一套产品跑通 Week01-Week14
+
+毕业项目不是另建一套演示代码，而是在当前主仓库上把逐周能力串成可登录、可查询、可操作、可审批、可观测、可发布的客服 Copilot 产品。完整说明见 [企业级 Capstone Runbook](runbooks/enterprise-capstone.md) 和 [产品化架构蓝图](docs/blueprints/capstone/enterprise-capstone-blueprint.md)。
+
+```bash
+# 1. 准备配置并启动真实运行组件
+cp infra/env/.env.example infra/env/.env.local
+docker compose --env-file infra/env/.env.local -f infra/docker-compose.yml up -d --build
+
+# 2. 灌入真实业务结构的虚构工单、文档及多模态资产；执行全链路
+docker compose --profile capstone --env-file infra/env/.env.local -f infra/docker-compose.yml \
+  run --rm capstone_bootstrap
+
+# 3. 通过公共 HTTP API 和 Phoenix 做端到端验收
+docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-compose.yml \
+  run --rm devbox python -m scripts.capstone.verify_e2e
+```
+
+产品入口：<http://localhost:8010>
+
+- 坐席：`agent@northstar.demo / Agent@2026`
+- 管理员：`admin@northstar.demo / Admin@2026`
+- 默认是无外部密钥也能完整运行的本地可复现模式；生成采用证据摘要 fallback，embedding 采用 deterministic baseline。配置 Ollama 或云模型后，产品消息会显示并持久化真实的 provider/model。
+- 生产模型模式需要在 `.env.local` 配置模型密钥并显式选择 embedding；详见 Runbook，不能把本地 baseline 当作生产模型质量。
+- 全新环境的固定验收基线是 240 条工单、10 个真实原始资产和 91 个可检索 chunk；重复运行不会翻倍。
+- 只从最新 `main` 的主仓库启动 Compose，不要同时运行旧 Week worktree；统一的 `omni_*` 容器名会被后启动的副本替换。
 
 ---
 
@@ -138,6 +168,8 @@ docker compose --profile tools --env-file infra/env/.env.local -f infra/docker-c
 默认对宿主机开放的端口：
 - `8000` — RAG API
 - `8001` — Tool API
+- `8002` — Copilot Product API
+- `8010` — OmniSupport 产品控制台
 - `3000` — Dagster
 - `9000/9001` — MinIO API / Console
 - `6006` — Phoenix
@@ -193,7 +225,9 @@ omnisupport-copilot/
 ├── infra/                      # Docker Compose + 数据库 migrations + 环境变量
 ├── services/
 │   ├── rag_api/                # FastAPI RAG 检索生成服务 (port 8000)
-│   └── tool_api/               # FastAPI 工单工具 + HITL + 审计 (port 8001)
+│   ├── tool_api/               # FastAPI 工单工具 + HITL + 审计 (port 8001)
+│   └── copilot_api/            # 身份、租户、会话、产品控制面 (port 8002)
+├── apps/copilot_console/       # 坐席/审批/运营一体化产品界面 (port 8010)
 ├── pipelines/                  # Dagster 资产化 pipeline
 │   ├── ingestion/              # Seed loader + 采集资产
 │   ├── data_factory/           # Week06 资产化编排、partition、backfill、checks、evidence
@@ -201,7 +235,8 @@ omnisupport-copilot/
 │   ├── parse_normalize/        # 文档解析 + 切片 + 证据链
 │   ├── lakehouse/              # Iceberg Bronze/Silver/Gold 表
 │   ├── indexing/               # 向量索引构建
-│   └── graph/                  # Week13 schema/extract/align/community/build
+│   ├── graph/                  # Week13 schema/extract/align/community/build
+│   └── capstone/               # 端到端 Dagster 资产图
 ├── services/graph/             # GraphStore + classifier + 四种图检索
 ├── release/                    # Week14 immutable manifest / registry / compliance pack
 ├── rollout/                    # Week14 canary decision / atomic rollback
@@ -245,7 +280,7 @@ omnisupport-copilot/
 | W12 | 🔄 | OTel/OpenInference、RAG/Tool/HITL spans、Phoenix、SLO 告警、bad-case 回归闭环 |
 | W13 | 🔄 | 图派生资产、实体对齐、Local/Global/Multi-hop/DRIFT、按题型 A/B、release 绑定 |
 | W14 | 🔄 | lakeFS 数据版本策略、v2 统一发布清单、影响分析、灰度门禁、原子回滚、合规证据包 |
-| W15 | 📅 | 成本、SLO、Runbook 与 Capstone 交付 |
+| W15 | ✅ | 产品控制面、真实数据包、Dagster 端到端资产图、自动 E2E 验收与 Capstone Runbook |
 
 Week13 GraphRAG 入口见 [runbooks/week13-graphrag.md](runbooks/week13-graphrag.md)，
 文件级设计见 [docs/blueprints/week13/week13-graphrag-blueprint.md](docs/blueprints/week13/week13-graphrag-blueprint.md)。

@@ -4,6 +4,7 @@ Week01 骨架：提供 health check 和 /query 基础端点。
 Week08 起逐步接入真实检索与生成链路。
 """
 
+import logging
 import uuid
 from contextlib import asynccontextmanager
 
@@ -15,6 +16,8 @@ from app.config import settings
 from app.observability import force_flush, instrument_fastapi_app, setup_telemetry
 from app.routers import admin, health, query, rag
 from observability.runtime import current_trace_id
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -64,11 +67,16 @@ async def add_request_id(request: Request, call_next):
 # ── 全局异常处理 ─────────────────────────────────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(
+        "Unhandled RAG API error request_id=%s",
+        getattr(request.state, "request_id", None),
+        exc_info=exc,
+    )
     return JSONResponse(
         status_code=500,
         content={
             "error": "internal_error",
-            "message": str(exc),
+            "message": "The request could not be completed.",
             "request_id": getattr(request.state, "request_id", None),
             "release_id": settings.release_id,
         },

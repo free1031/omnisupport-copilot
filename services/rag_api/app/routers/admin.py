@@ -1,8 +1,9 @@
 """管理接口 — Release 信息、索引状态"""
 
 from fastapi import APIRouter
-from app.models.rag_models import ReleaseInfoResponse
+
 from app.config import settings
+from app.models.rag_models import ReleaseInfoResponse
 
 router = APIRouter(tags=["admin"])
 

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/evals/eval_dataset/v1",
   "title": "EvalDatasetSample",
   "description": "Week11 RAG/Agent evaluation sample. A dataset is stored as JSONL of this sample schema.",
@@ -44,4 +44,3 @@
   },
   "additionalProperties": false
 }
-

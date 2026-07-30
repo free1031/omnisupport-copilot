@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/data/video_asset/v1",
   "title": "VideoAssetContract",
   "description": "OmniSupport Copilot — 视频资产数据契约 v1 (教学视频 / 安装录屏 / 支持演示)",

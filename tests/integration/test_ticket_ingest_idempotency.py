@@ -1,8 +1,9 @@
+# ruff: noqa: E402 - repository path is installed before pipeline imports
+
 import asyncio
 import json
-from pathlib import Path
 import sys
-
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))

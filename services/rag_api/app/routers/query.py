@@ -9,9 +9,10 @@ import logging
 import uuid
 
 import asyncpg
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from app.config import settings
+from app.internal_auth import InternalPrincipal, require_internal_request
 from app.models.rag_models import EvidenceAnchor, QueryRequest, QueryResponse, RetrievedChunk
 from observability.runtime import current_trace_id, hash_text, traced_span
 
@@ -62,6 +63,7 @@ async def close_pool() -> None:
 async def query_knowledge(
     request: QueryRequest,
     http_request: Request,
+    _principal: InternalPrincipal = Depends(require_internal_request),
 ) -> QueryResponse:
     request_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
     trace_id = current_trace_id() or request_id

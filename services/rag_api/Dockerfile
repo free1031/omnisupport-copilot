@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 源码
 COPY services/rag_api/app/ ./app/
 COPY services/graph/ /workspace/services/graph/
+COPY pipelines/ /workspace/pipelines/
 COPY observability/ ./observability/
 
 EXPOSE 8000

@@ -5,6 +5,7 @@ Week01 骨架：提供 health check 和工具调用契约验证框架。
 Week10 起接入真实工单 CRUD、HITL 触发、审计日志。
 """
 
+import logging
 import uuid
 from contextlib import asynccontextmanager
 
@@ -13,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.db import close_pool
 from app.routers import health, kpis, skills, tickets, tool_contracts
 from observability.runtime import (
     TelemetryConfig,
@@ -22,10 +24,13 @@ from observability.runtime import (
     instrument_fastapi_app,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
+    await close_pool()
     force_flush()
 
 
@@ -51,7 +56,7 @@ instrument_fastapi_app(app)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["*"],
 )
@@ -71,11 +76,16 @@ async def add_request_id(request: Request, call_next):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(
+        "Unhandled Tool API error request_id=%s",
+        getattr(request.state, "request_id", None),
+        exc_info=exc,
+    )
     return JSONResponse(
         status_code=500,
         content={
             "error": "internal_error",
-            "message": str(exc),
+            "message": "The request could not be completed.",
             "request_id": getattr(request.state, "request_id", None),
             "release_id": settings.release_id,
         },
@@ -87,3 +97,4 @@ app.include_router(skills.router, prefix="/api/v1")
 app.include_router(tool_contracts.router, prefix="/api/v1")
 app.include_router(tickets.router, prefix="/api/v1/tools")
 app.include_router(kpis.router, prefix="/api/v1/tools")
+app.include_router(tickets.approval_router, prefix="/api/v1")

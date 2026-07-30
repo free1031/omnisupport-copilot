@@ -17,7 +17,6 @@ from typing import Any
 
 import yaml
 
-
 FRONTMATTER_RE = re.compile(r"^---\n(?P<frontmatter>.*?)\n---\n(?P<body>.*)$", re.DOTALL)
 SKILL_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 

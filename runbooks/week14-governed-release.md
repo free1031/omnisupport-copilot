@@ -3,16 +3,22 @@
 Run every command from the latest `omnisupport-copilot` repository root. Docker and Podman use the
 same code path; Podman users replace `docker compose` with `podman compose`.
 
-## 1. Start PostgreSQL and apply the additive migration
+![Week14 治理发布控制面文件级执行链](../docs/assets/week14/week14-governed-release-control-plane.png)
+
+Read the diagram before running the commands: Week14 starts from a release spec, generates an
+immutable manifest, runs impact analysis and canary gates, switches the registry pointer atomically,
+and keeps rollback, audit and compliance evidence on the same release chain.
+
+## 1. Start PostgreSQL and apply additive migrations
 
 ```bash
-docker compose --env-file infra/env/.env.local -f infra/docker-compose.yml up -d postgres
-
-docker compose --env-file infra/env/.env.local -f infra/docker-compose.yml exec -T postgres \
-  psql -U omni -d omnisupport < infra/migrations/011_week14_governed_release.sql
+docker compose --env-file infra/env/.env.local -f infra/docker-compose.yml up -d postgres db_migrate
 ```
 
-Existing volumes do not replay `docker-entrypoint-initdb.d`; applying `011` manually is required.
+Existing volumes do not replay `docker-entrypoint-initdb.d`, so the repository now uses the
+one-shot `db_migrate` service for every additive migration. It records filename and checksum in
+`app_schema_migration`, applies `011_week14_governed_release.sql` exactly once, and fails closed if
+an already-applied migration file was changed. Do not run `011` manually after this command.
 
 ## 2. Generate a manifest from real repository artifacts
 
@@ -147,7 +153,7 @@ promotes the second release, rolls back to the first and verifies generation `3`
 
 | Symptom | Cause | Action |
 |---|---|---|
-| `relation governed_release_manifest does not exist` | Existing volume has not run migration 011 | Repeat section 1 |
+| `relation governed_release_manifest does not exist` | `db_migrate` did not complete on this volume | Repeat section 1 and inspect `docker compose ... logs db_migrate` |
 | `digest mismatch` | Manifest was edited after generation | Reject it and generate a new release |
 | `stale release pointer` | Another deploy changed the environment first | Reload active release and rerun impact/canary |
 | `rollback target must be the direct previous release` | Target is outside the active chain | Roll back one release or ship a forward fix |

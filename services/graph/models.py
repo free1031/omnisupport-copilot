@@ -51,8 +51,9 @@ class GraphPathRecord:
 
     @property
     def evidence_ids(self) -> tuple[str, ...]:
-        values = {value for item in self.entities for value in item.evidence_ids}
-        values.update(value for item in self.relations for value in item.evidence_ids)
+        values = {value for item in self.relations for value in item.evidence_ids}
+        if not values:
+            values = {value for item in self.entities for value in item.evidence_ids}
         return tuple(sorted(values))
 
     def to_dict(self) -> dict[str, Any]:

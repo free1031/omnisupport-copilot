@@ -108,6 +108,7 @@ metrics:
     metric_type: average
     formula: "avg(backlog_age_days)"
     aggregation: avg
+    weight_column: ticket_count
     unit: days
     sensitivity: low
     definition_status: production
@@ -123,6 +124,7 @@ metrics:
     metric_type: average
     formula: "avg(first_comment_at - created_at)"
     aggregation: avg
+    weight_column: first_response_count
     unit: minutes
     sensitivity: low
     definition_status: production
@@ -138,6 +140,7 @@ metrics:
     metric_type: average
     formula: "avg(resolved_at - created_at)"
     aggregation: avg
+    weight_column: handle_time_count
     unit: minutes
     sensitivity: low
     definition_status: production

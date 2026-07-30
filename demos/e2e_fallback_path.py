@@ -16,8 +16,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from agent.copilot import ControlledAgent
-from tools.fallback import FallbackChain
+from agent.copilot import ControlledAgent  # noqa: E402
+from tools.fallback import FallbackChain  # noqa: E402
 
 
 def _payload() -> dict:

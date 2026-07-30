@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "omni://contracts/data/ticket/v1",
   "title": "TicketContract",
   "description": "OmniSupport Copilot — 工单数据契约 v1 (Northstar Systems 虚构业务)",
@@ -26,6 +26,14 @@
     },
     "ingest_batch_id": {
       "type": "string"
+    },
+    "tenant_id": {
+      "type": "string",
+      "description": "Tenant boundary used by product-facing services; older course fixtures may omit it"
+    },
+    "data_release_id": {
+      "type": "string",
+      "description": "Immutable data release carried from source contract to marts and runtime evidence"
     },
     "customer_id": {
       "type": "string",

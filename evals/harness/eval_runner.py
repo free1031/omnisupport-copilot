@@ -21,7 +21,7 @@ import json
 import logging
 import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -237,7 +237,6 @@ class EvalRunner:
             )
 
     async def run(self, eval_set_path: Path, concurrency: int = 5) -> EvalRunSummary:
-        import uuid as _uuid
         eval_run_id = f"eval-run-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         cases = self.load_eval_set(eval_set_path)
         logger.info(f"Running {len(cases)} eval cases (concurrency={concurrency})")

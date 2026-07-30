@@ -4,19 +4,18 @@ Week01 骨架：定义资产图，建立从 seed manifest 到 raw zone 的链路
 Week03 起接入真实采集器，打通 MinIO 落盘与 PostgreSQL 元数据写入。
 """
 
-from dagster import (
-    asset,
-    AssetExecutionContext,
-    MetadataValue,
-    Output,
-    define_asset_job,
-    AssetSelection,
-)
-from dagster import EnvVar
 import json
 import os
 from pathlib import Path
 
+from dagster import (
+    AssetExecutionContext,
+    AssetSelection,
+    MetadataValue,
+    Output,
+    asset,
+    define_asset_job,
+)
 
 # ── 常量 ─────────────────────────────────────────────────────────────────────
 MANIFEST_DIR = Path(os.getenv("SEED_MANIFEST_PATH", "/manifests"))

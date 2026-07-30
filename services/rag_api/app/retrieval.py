@@ -12,12 +12,18 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Sequence
 
 from observability.runtime import traced_span
 
 logger = logging.getLogger(__name__)
+
+FTS_STOPWORDS = {
+    "a", "an", "and", "are", "before", "do", "does", "for", "from", "how", "i", "in",
+    "is", "must", "of", "on", "or", "please", "the", "to", "what", "when", "with",
+}
 
 
 def _format_pgvector(vector: Sequence[float]) -> str:
@@ -236,10 +242,18 @@ async def fts_search(
     quality_status: str | None = None,
 ) -> list[RetrievalResult]:
     """PostgreSQL 全文检索（tsvector + tsquery）"""
+    fts_query = _build_fts_query(query)
+    if not fts_query:
+        return []
     where_clauses = [
-        "to_tsvector('english', ks.content) @@ plainto_tsquery('english', $1)"
+        """(
+            setweight(to_tsvector('english', COALESCE(kd.title, '')), 'A') ||
+            setweight(to_tsvector('english', COALESCE(ks.section_path, '')), 'A') ||
+            setweight(to_tsvector('english', COALESCE(ks.content, '')), 'A') ||
+            setweight(to_tsvector('english', COALESCE(ks.context_prefix, '')), 'B')
+        ) @@ websearch_to_tsquery('english', $1)"""
     ]
-    params: list = [query]
+    params: list = [fts_query]
     _apply_metadata_filters(
         where_clauses,
         params,
@@ -272,8 +286,13 @@ async def fts_search(
                 kd.title,
                 kd.source_url,
                 kd.doc_version,
-                ts_rank_cd(to_tsvector('english', ks.content),
-                           plainto_tsquery('english', $1)) AS score
+                ts_rank_cd(
+                    setweight(to_tsvector('english', COALESCE(kd.title, '')), 'A') ||
+                    setweight(to_tsvector('english', COALESCE(ks.section_path, '')), 'A') ||
+                    setweight(to_tsvector('english', COALESCE(ks.content, '')), 'A') ||
+                    setweight(to_tsvector('english', COALESCE(ks.context_prefix, '')), 'B'),
+                    websearch_to_tsquery('english', $1)
+                ) AS score
             FROM knowledge_section ks
             JOIN knowledge_doc kd ON ks.doc_id = kd.doc_id
             LEFT JOIN evidence_anchor ea ON ea.chunk_id = ks.section_id
@@ -307,6 +326,18 @@ async def fts_search(
         )
         for r in rows
     ]
+
+
+def _build_fts_query(query: str) -> str:
+    """Create a bounded OR query for recall; RRF/rerank remains the precision gate."""
+    tokens = []
+    seen = set()
+    for raw in re.findall(r"[A-Za-z][A-Za-z0-9_-]{1,63}", query):
+        token = raw.lower()
+        if token not in FTS_STOPWORDS and token not in seen:
+            tokens.append(token)
+            seen.add(token)
+    return " OR ".join(tokens[:16])
 
 
 # ── RRF 融合 ─────────────────────────────────────────────────────────────────

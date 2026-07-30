@@ -17,7 +17,6 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-
 ROOT = Path(__file__).resolve().parents[2]
 RAG_API_ROOT = ROOT / "services" / "rag_api"
 REPORT_PATH = ROOT / "reports" / "week08" / "smoke_eval_report.md"
@@ -158,7 +157,7 @@ def run() -> int:
         "Week 8：从“搜得到”到“答得稳”——检索 × 生成的一体化工程闭环",
         "",
         f"- Generated at: {time.strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- Runner: `evals/week08/run_smoke_eval.py`",
+        "- Runner: `evals/week08/run_smoke_eval.py`",
         f"- Elapsed: `{elapsed} ms`",
         f"- Result: `{'PASS' if failures == 0 else 'FAIL'}`",
         "",

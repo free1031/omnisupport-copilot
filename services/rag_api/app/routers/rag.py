@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from app.audit import Timer, write_rag_audit_log
 from app.config import settings
 from app.context_pruning import prune_contexts
 from app.generator import generate_grounded_answer
+from app.internal_auth import InternalPrincipal, require_internal_request
+from app.llm import resolve_llm_runtime
 from app.models.rag_models import (
     Citation,
     GraphRetrievalDebug,
@@ -31,7 +33,11 @@ router = APIRouter(tags=["week08-rag"])
 
 
 @router.post("/rag/answer", response_model=RagAnswerResponse, summary="Week8 RAG answer")
-async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAnswerResponse:
+async def rag_answer(
+    payload: RagAnswerRequest,
+    http_request: Request,
+    principal: InternalPrincipal = Depends(require_internal_request),
+) -> RagAnswerResponse:
     timer = Timer()
     request_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
     trace_id = current_trace_id() or request_id
@@ -43,6 +49,8 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
         payload.visibility_scope or settings.graph_default_visibility_scope
     )
     requested_mode = payload.retrieval_mode
+    tenant_id = principal.tenant_id or payload.tenant_id or "course-legacy"
+    actor_role = principal.actor_role or payload.actor_role
     route_decision = (
         classify_query(payload.question, threshold=settings.graph_classifier_threshold)
         if requested_mode == "auto"
@@ -63,13 +71,15 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
         "graph_release_id": graph_release_id,
         "retrieval_mode": requested_mode,
         "graph_visibility_scope": graph_visibility_scope,
+        "tenant_id": tenant_id,
     }
 
     root_attributes = {
         "omni.request_id": request_id,
         "omni.query.sha256": hash_text(payload.question),
         "omni.query.length": len(payload.question),
-        "omni.actor.role": payload.actor_role or "anonymous",
+        "omni.actor.role": actor_role or "anonymous",
+        "omni.tenant_id": tenant_id,
         "omni.product_line": payload.product_line or "any",
         "omni.release_id": settings.release_id,
         "omni.data_release_id": data_release_id,
@@ -83,6 +93,7 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
 
     with traced_span("rag.query", kind="CHAIN", attributes=root_attributes) as root_span:
         trace_id = current_trace_id() or trace_id
+        llm_runtime = resolve_llm_runtime()
         with traced_span(
             "rag.intent.route",
             kind="CHAIN",
@@ -209,7 +220,8 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
             "llm.generate",
             kind="LLM",
             attributes={
-                "llm.model_name": settings.llm_model,
+                "llm.provider": llm_runtime.provider,
+                "llm.model_name": llm_runtime.model,
                 "llm.invocation_parameters": (
                     f"max_tokens={settings.llm_max_tokens},temperature={settings.llm_temperature}"
                 ),
@@ -217,7 +229,7 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
                 "omni.evidence_count": len(citations),
             },
         ) as generation_span:
-            answer, confidence, abstain_reason = await generate_grounded_answer(
+            answer, confidence, abstain_reason, generation = await generate_grounded_answer(
                 question=payload.question,
                 chunks=generation_chunks,
                 prompt_release_id=prompt_release_id,
@@ -225,6 +237,15 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
                 retrieval_mode=effective_mode,
             )
             generation_span.set_attribute("omni.answer.length", len(answer))
+            generation_span.set_attribute("omni.generation.mode", generation["mode"])
+            generation_span.set_attribute("llm.provider", generation["provider"])
+            generation_span.set_attribute("llm.model_name", generation["model"])
+            if generation.get("input_tokens") is not None:
+                generation_span.set_attribute("llm.token_count.prompt", generation["input_tokens"])
+            if generation.get("output_tokens") is not None:
+                generation_span.set_attribute(
+                    "llm.token_count.completion", generation["output_tokens"]
+                )
             generation_span.set_attribute("omni.answer.confidence", confidence)
             generation_span.set_attribute(
                 "omni.business_status", abstain_reason or "grounded_answer"
@@ -276,7 +297,8 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
                             request_id=request_id,
                             trace_id=trace_id,
                             question=payload.question,
-                            actor_role=payload.actor_role,
+                            tenant_id=tenant_id,
+                            actor_role=actor_role,
                             filters=filters,
                             retrieved_evidence_ids=[c.evidence_id for c in citations],
                             scores=[chunk.debug_scores() for chunk in generation_chunks],
@@ -311,6 +333,9 @@ async def rag_answer(payload: RagAnswerRequest, http_request: Request) -> RagAns
             prompt_release_id=prompt_release_id,
             graph_release_id=graph_release_id if requested_mode != "hybrid" else None,
             retrieval_mode=effective_mode,
+            generation_mode=generation["mode"],
+            generation_provider=generation["provider"],
+            generation_model=generation["model"],
             trace_id=trace_id,
             retrieved_contexts=retrieved_contexts,
             retrieval_debug=debug,

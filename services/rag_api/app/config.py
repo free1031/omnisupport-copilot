@@ -22,10 +22,19 @@ class Settings(BaseSettings):
     minio_bucket_indexes: str = "omni-indexes"
 
     # ── LLM ─────────────────────────────────────────────────────────────────
+    llm_provider: str = "auto"
+    llm_base_url: str = ""
+    openai_api_key: str = ""
     anthropic_api_key: str = ""
-    llm_model: str = "claude-sonnet-4-6"
+    deepseek_api_key: str = ""
+    dashscope_api_key: str = ""
+    kimi_api_key: str = ""
+    moonshot_api_key: str = ""
+    llm_model: str = ""
     llm_max_tokens: int = 2048
     llm_temperature: float = 0.0
+    llm_timeout_seconds: float = 90.0
+    llm_max_retries: int = 1
 
     # ── 检索 ─────────────────────────────────────────────────────────────────
     retrieval_top_k: int = 5
@@ -52,10 +61,12 @@ class Settings(BaseSettings):
     otel_capture_content: bool = False
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    cors_origins: List[str] = ["*"]
+    cors_origins: List[str] = ["http://localhost:8010", "http://127.0.0.1:8010"]
 
     # ── 安全 ─────────────────────────────────────────────────────────────────
     api_secret_key: str = "dev-secret-change-in-prod"
+    internal_service_token: str = "dev-internal-token-change-in-prod"
+    require_internal_auth: bool = False
 
 
 settings = Settings()

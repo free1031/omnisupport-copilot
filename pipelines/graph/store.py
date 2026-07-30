@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+from dataclasses import asdict
 from typing import Iterable
 
 from pipelines.graph.align import normalize_name
@@ -23,6 +25,13 @@ def persist_graph_build(
     dsn = dsn.replace("postgresql+asyncpg://", "postgresql://", 1)
     chunks = list(chunks)
     build_report = result.to_dict()
+    source_payload = json.dumps(
+        [asdict(chunk) for chunk in chunks],
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    build_report["source_digest"] = "sha256:" + hashlib.sha256(source_payload.encode()).hexdigest()
     with psycopg2.connect(dsn) as conn:
         with conn.cursor() as cursor:
             # Serialize builds for the same release and keep activated releases immutable.
@@ -91,7 +100,8 @@ def persist_graph_build(
                 """
                 INSERT INTO graph_evidence_projection (
                     graph_release_id, evidence_id, chunk_id, doc_id, source_id, content,
-                    section_path, data_release_id, product_line, visibility_scope
+                    section_path, page_no, title, bbox, source_url, doc_version,
+                    data_release_id, product_line, visibility_scope
                 ) VALUES %s
                 """,
                 [
@@ -102,7 +112,12 @@ def persist_graph_build(
                         chunk.doc_id,
                         chunk.source_id,
                         chunk.content,
-                        f"Week13 source > {chunk.chunk_id}",
+                        chunk.section_path or f"Graph source > {chunk.chunk_id}",
+                        chunk.page_no,
+                        chunk.title,
+                        chunk.bbox,
+                        chunk.source_url,
+                        chunk.doc_version,
                         chunk.data_release_id,
                         chunk.product_line,
                         chunk.visibility_scope,

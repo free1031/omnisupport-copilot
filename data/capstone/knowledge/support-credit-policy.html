@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Support credit policy</title></head>
+<body><article>
+<h1>Service credit and refund control policy</h1>
+<p>Policy owner: Customer Operations and Finance. Classification: internal.</p>
+<h2>Agent authority</h2>
+<p>A support agent may document impact and propose a service credit. The agent may not execute a refund. Credits at or above USD 500, any refund, and any externally visible financial adjustment require approval from support operations or billing operations.</p>
+<h2>Required evidence</h2>
+<p>The request must contain ticket_id, affected service window, verified impact, amount, currency, business reason, evidence identifiers, idempotency key, actor, and trace_id. Missing evidence is a denial, not a prompt for the model to invent context.</p>
+<h2>Execution</h2>
+<p>The controlled tool writes a checkpoint first. Approval resumes the stored payload; it must not reconstruct financial arguments from chat. Reusing the same idempotency key with different arguments is rejected.</p>
+<h2>Audit</h2>
+<p>Store approval_id, reviewer, decision reason, action lineage, release_id, and immutable audit event. A rejected request remains visible for review.</p>
+</article></body></html>

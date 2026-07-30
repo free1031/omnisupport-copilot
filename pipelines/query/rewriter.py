@@ -6,9 +6,8 @@ this deterministic so Docker/Podman runs do not require an LLM key.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import re
-
+from dataclasses import asdict, dataclass, field
 
 ERROR_CODE_RE = re.compile(r"\b[A-Z]{2,}-[A-Z0-9-]+\b")
 IDENTIFIER_RE = re.compile(r"\b[A-Z]+-\d{3,}(?:-[A-Z0-9]+)?\b")

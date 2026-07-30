@@ -14,7 +14,6 @@ from evals.week11.dataset import dataset_digest, load_eval_set
 from evals.week11.metrics import score_case
 from evals.week11.models import EvalCaseResult, EvalPrediction, EvalReport, EvalSample
 
-
 DEFAULT_DATASET_ID = "rag_qa_golden_v2"
 DEFAULT_DATASET_VERSION = "2.3.0"
 

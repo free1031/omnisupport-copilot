@@ -14,6 +14,7 @@ import os
 
 from app.config import settings
 from app.context_pruning import prune_contexts
+from app.llm import complete, resolve_llm_runtime
 
 logger = logging.getLogger(__name__)
 
@@ -83,20 +84,8 @@ async def generate_answer(
     )
 
     try:
-        import anthropic
-
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-
-        response = client.messages.create(
-            model=settings.llm_model,
-            max_tokens=settings.llm_max_tokens,
-            temperature=settings.llm_temperature,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-            metadata={"user_id": trace_id},  # OTel trace 关联
-        )
-
-        answer = response.content[0].text
+        response = await complete(system_prompt=SYSTEM_PROMPT, user_prompt=user_message)
+        answer = response.text
 
         # 解析答案中的引用标记 [来源N]
         citations = _extract_citations(answer, chunks)
@@ -106,11 +95,8 @@ async def generate_answer(
 
         return answer, citations, confidence
 
-    except anthropic.AuthenticationError:
-        logger.error("Anthropic API key invalid")
-        return _fallback_answer(query, chunks), [], 0.3
     except Exception as e:
-        logger.error(f"Claude API error: {e}")
+        logger.error("LLM generation error: %s", e)
         return _fallback_answer(query, chunks), [], 0.3
 
 
@@ -218,7 +204,7 @@ async def generate_grounded_answer(
     prompt_release_id: str,
     graph_context: str | None = None,
     retrieval_mode: str = "hybrid",
-) -> tuple[str, float, str | None]:
+) -> tuple[str, float, str | None, dict[str, object]]:
     """Generate a Week8 contract response body.
 
     Citations are intentionally not created here. They are derived by the router
@@ -233,6 +219,7 @@ async def generate_grounded_answer(
             no_answer or "当前知识库未覆盖这个问题，无法在现有证据范围内稳定回答。",
             0.0,
             "no_retrieval_results",
+            {"mode": "not_invoked", "provider": "none", "model": "none"},
         )
 
     confidence = _estimate_confidence(selected_chunks)
@@ -241,36 +228,38 @@ async def generate_grounded_answer(
             "已检索到候选证据，但置信度低于当前门禁，建议补充证据后再回答。",
             confidence,
             "low_retrieval_confidence",
+            {"mode": "not_invoked", "provider": "none", "model": "none"},
         )
 
-    if not settings.anthropic_api_key:
+    runtime = resolve_llm_runtime()
+    if not runtime.configured:
         top = selected_chunks[0]
         answer = (
             "AI 生成服务未配置，以下返回最相关证据摘要作为可审计 fallback：\n\n"
             f"{top.content[:700]}"
         )
-        return answer, confidence, None
+        return answer, confidence, None, {
+            "mode": "deterministic_fallback",
+            "provider": runtime.provider,
+            "model": runtime.model,
+        }
 
     try:
-        import anthropic
-
         system_prompt, user_prompt = render_evidence_prompt(
             question,
             selected_chunks,
             graph_context=graph_context,
             retrieval_mode=retrieval_mode,
         )
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        response = client.messages.create(
-            model=settings.llm_model,
-            max_tokens=settings.llm_max_tokens,
-            temperature=settings.llm_temperature,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
-            metadata={"prompt_release_id": prompt_release_id},
-        )
-        answer = response.content[0].text
-        return answer, confidence, None
+        response = await complete(system_prompt=system_prompt, user_prompt=user_prompt)
+        return response.text, confidence, None, {
+            "mode": "llm",
+            "provider": response.provider,
+            "model": response.model,
+            "request_id": response.request_id,
+            "input_tokens": response.input_tokens,
+            "output_tokens": response.output_tokens,
+        }
     except Exception as exc:
         logger.warning("Prompt-backed generation failed, using fallback: %s", exc)
         top = selected_chunks[0]
@@ -279,4 +268,10 @@ async def generate_grounded_answer(
             f"{top.content[:700]}",
             confidence,
             None,
+            {
+                "mode": "deterministic_fallback",
+                "provider": runtime.provider,
+                "model": runtime.model,
+                "error_type": type(exc).__name__,
+            },
         )

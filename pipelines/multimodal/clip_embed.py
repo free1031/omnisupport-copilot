@@ -1,7 +1,7 @@
 """Optional CLIP-style embedding adapter."""
 
-from dataclasses import dataclass
 import importlib.util
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

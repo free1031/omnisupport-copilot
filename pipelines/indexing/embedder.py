@@ -317,8 +317,8 @@ async def build_index(
     report_dir: str | Path = "reports/week08",
 ) -> IndexStats:
     """
-    从 knowledge_section 读取未索引的 chunks，
-    批量嵌入，写回 embedding 列，更新 index_release_id。
+    从目标 data release 读取 chunks，复用已经属于当前 index release 的
+    embedding，只处理缺失或版本不匹配的记录。
     """
     from pipelines.ingestion.db import acquire, close_pool
 
@@ -334,9 +334,23 @@ async def build_index(
         async with acquire() as conn:
             await ensure_week08_index_schema(conn)
 
-            # 查询待索引 chunks（embedding IS NULL 或 index_release_id 不匹配）
-            where_clauses = ["(embedding IS NULL OR index_release_id != $1)"]
-            params: list = [index_release_id]
+            eligible_count = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM knowledge_section
+                WHERE data_release_id = $1 AND chunk_strategy_version = $2
+                """,
+                data_release_id,
+                chunk_strategy_version,
+            )
+
+            # Only the requested immutable data/chunk release may enter this index release.
+            where_clauses = [
+                "data_release_id = $2",
+                "chunk_strategy_version = $3",
+                "(embedding IS NULL OR index_release_id != $1)",
+            ]
+            params: list = [index_release_id, data_release_id, chunk_strategy_version]
 
             if doc_id:
                 where_clauses.append(f"doc_id = ${len(params)+1}")
@@ -352,8 +366,16 @@ async def build_index(
                 *params,
             )
 
-            stats.total_chunks = len(rows)
-            logger.info(f"Found {stats.total_chunks} chunks to index (release: {index_release_id})")
+            pending_count = len(rows)
+            stats.total_chunks = int(eligible_count or 0)
+            stats.skipped = stats.total_chunks - pending_count
+            logger.info(
+                "Index release %s: %s eligible, %s pending, %s already current",
+                index_release_id,
+                stats.total_chunks,
+                pending_count,
+                stats.skipped,
+            )
 
             if dry_run:
                 logger.info("[dry-run] Skipping actual embedding generation")
@@ -369,13 +391,13 @@ async def build_index(
                 stats.embedding_model = provider.model
                 stats.embedding_dim = provider.dim
             except Exception as e:
-                stats.errors = stats.total_chunks
+                stats.errors = pending_count
                 stats.warnings.append(f"embedding provider unavailable: {e}")
                 return stats
 
             if stats.embedding_dim != EMBEDDING_DIM:
-                stats.errors = stats.total_chunks
-                stats.skipped = stats.total_chunks
+                stats.errors = pending_count
+                stats.skipped += pending_count
                 stats.warnings.append(
                     f"dimension mismatch: provider returned {stats.embedding_dim}, "
                     f"but knowledge_section.embedding is vector({EMBEDDING_DIM})"
@@ -481,8 +503,8 @@ async def build_index(
                 stats.embedded,
                 stats.skipped,
                 stats.errors,
-                "fail" if stats.errors else ("warn" if stats.skipped else "pass"),
-                "Week8 index build completed",
+                "fail" if stats.errors else "pass",
+                "Week8 index build completed; skipped chunks were already on the requested release",
                 json.dumps(stats.warnings, ensure_ascii=False),
             )
 

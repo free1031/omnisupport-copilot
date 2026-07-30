@@ -4,7 +4,6 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 CONTRACT_DIR = PROJECT_ROOT / "contracts" / "data"
 FIXTURE_DIR = PROJECT_ROOT / "tests" / "contract" / "fixtures" / "week07"

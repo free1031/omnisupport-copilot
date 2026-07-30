@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Edge Gateway TLS recovery</title></head>
+<body><article>
+<h1>Northstar Edge Gateway TLS and connectivity recovery</h1>
+<p>Applies to Edge Gateway firmware 3.8 and 3.9. Error codes: EG-CONN-001, EG-CERT-005, EG-BOOT-004.</p>
+<h2>Observed failure</h2>
+<p>The gateway rejects upstream TLS connections after an intermediate certificate expires. Logs contain certificate verify failed. Some devices remain offline after a network change.</p>
+<h2>Controlled recovery</h2>
+<ol><li>Export the current trust-store checksum and gateway configuration snapshot.</li><li>Verify device time is within two minutes of the trusted NTP source.</li><li>Install the renewed intermediate certificate; do not replace the private device identity key.</li><li>Reload the trust store and test one canary gateway.</li><li>Verify telemetry, command acknowledgement, and certificate chain before rolling out by site.</li></ol>
+<h2>Rollback</h2>
+<p>If the canary cannot establish a trusted connection, restore the previous trust-store snapshot, reload the service, and attach the trace identifier to the incident. A factory reset is not an approved first response.</p>
+<h2>Escalation</h2>
+<p>Escalate to security when the leaf certificate identity does not match the registered device or when an unknown root certificate appears.</p>
+</article></body></html>

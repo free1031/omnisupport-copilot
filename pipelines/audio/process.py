@@ -4,8 +4,8 @@ Whisper/pyannote are production adapters. The default classroom path consumes
 versioned transcript sidecars so the parse pipeline remains reproducible.
 """
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

@@ -11,7 +11,6 @@ from typing import Any
 
 from tools.idempotency import stable_digest
 
-
 COMPARATORS = {
     "==": operator.eq,
     "!=": operator.ne,

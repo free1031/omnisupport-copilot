@@ -65,7 +65,7 @@
       },
       "amount_cents": {
         "type": "integer",
-        "minimum": 0,
+        "minimum": 1,
         "description": "服务抵扣或退款金额，单位为分"
       },
       "currency": {
@@ -105,7 +105,27 @@
         "minLength": 8,
         "description": "贯穿 OpenLineage、OTel、audit_log、action lineage 的追踪 ID"
       }
-    }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "operation": {
+              "enum": ["grant_service_credit", "refund_payment"]
+            }
+          },
+          "required": ["operation"]
+        },
+        "then": {
+          "required": ["amount_cents", "evidence_ids"],
+          "properties": {
+            "evidence_ids": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    ]
   },
   "output_schema": {
     "type": "object",
