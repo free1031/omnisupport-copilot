@@ -409,7 +409,12 @@ class CrossEncoderReranker:
             scores = model.predict(pairs)
             for result, score in zip(results, scores):
                 result.rerank_score = float(score)
-            results.sort(key=lambda x: x.rerank_score, reverse=True)
+            results.sort(
+                key=lambda x: (
+                    x.rerank_score if x.rerank_score is not None else float("-inf")
+                ),
+                reverse=True,
+            )
         except Exception as e:
             logger.warning(f"Rerank failed: {e}")
 
@@ -434,10 +439,21 @@ async def hybrid_retrieve(
     quality_status: str | None = None,
     rerank: bool = True,
     min_score: float = 0.0,
+    semantic_query: str | None = None,
+    lexical_query: str | None = None,
+    rerank_query: str | None = None,
 ) -> list[RetrievalResult]:
     """
-    执行完整混合检索：vector + FTS → RRF → rerank → filter
+    执行完整混合检索：vector + FTS → RRF → rerank → filter。
+
+    `semantic_query` 只进入向量检索，`lexical_query` 只进入 FTS，原始
+    `query` 默认用于 rerank。这样 Query Rewrite 可以扩展语义召回，同时
+    保留错误码、型号等精确词，并让最终排序继续贴近用户原始意图。
     """
+    vector_query = semantic_query or query
+    keyword_query = lexical_query or query
+    ranking_query = rerank_query or query
+
     async def run_vector_search():
         with traced_span(
             "rag.retrieve.vector",
@@ -446,7 +462,7 @@ async def hybrid_retrieve(
         ) as span:
             results = await vector_search(
                 conn,
-                query,
+                vector_query,
                 top_k * 2,
                 product_line=product_line,
                 index_release_id=index_release_id,
@@ -467,7 +483,7 @@ async def hybrid_retrieve(
         ) as span:
             results = await fts_search(
                 conn,
-                query,
+                keyword_query,
                 top_k * 2,
                 product_line=product_line,
                 index_release_id=index_release_id,
@@ -506,7 +522,7 @@ async def hybrid_retrieve(
                 "omni.rerank.input_count": before_count,
             },
         ) as rerank_span:
-            merged = _reranker.rerank(query, merged[: top_k * 2])
+            merged = _reranker.rerank(ranking_query, merged[: top_k * 2])
             rerank_span.set_attribute("omni.rerank.output_count", len(merged))
             rerank_span.set_attribute("omni.rerank.dropped_count", before_count - len(merged))
 

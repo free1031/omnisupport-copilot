@@ -4,7 +4,7 @@ import asyncpg
 from fastapi import APIRouter
 
 from app.config import settings
-from app.llm import resolve_llm_runtime
+from app.llm import resolve_llm_runtime, resolve_query_rewrite_runtime
 from app.models.rag_models import HealthResponse
 
 router = APIRouter(tags=["system"])
@@ -20,6 +20,17 @@ async def health_check() -> HealthResponse:
     """
     database_status, index_status = await _check_storage()
     llm_runtime = resolve_llm_runtime()
+    rewrite_runtime = resolve_query_rewrite_runtime()
+    rewrite_requires_llm = (
+        settings.query_rewrite_enabled and settings.query_rewrite_strategy == "llm"
+    )
+    rewrite_status = (
+        "disabled"
+        if not settings.query_rewrite_enabled or settings.query_rewrite_strategy == "disabled"
+        else "llm_ready"
+        if rewrite_runtime.configured and settings.query_rewrite_strategy in {"auto", "llm"}
+        else "deterministic"
+    )
     checks: dict[str, str] = {
         "api": "ok",
         "database": database_status,
@@ -27,11 +38,19 @@ async def health_check() -> HealthResponse:
         "llm": "external" if llm_runtime.configured else "deterministic_fallback",
         "llm_provider": llm_runtime.provider,
         "llm_model": llm_runtime.model,
+        "query_rewrite": rewrite_status,
+        "query_rewrite_provider": rewrite_runtime.provider,
+        "query_rewrite_model": rewrite_runtime.model,
+        "query_rewrite_prompt_release_id": settings.query_rewrite_prompt_release_id,
     }
 
     overall = (
         "ok"
-        if database_status == "ok" and index_status == "ok"
+        if (
+            database_status == "ok"
+            and index_status == "ok"
+            and (not rewrite_requires_llm or rewrite_runtime.configured)
+        )
         else "degraded"
     )
 

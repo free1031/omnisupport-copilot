@@ -1,0 +1,5 @@
+{"case_id":"qr-en-procedure","query":"How do I recover EG-3000 after EG-BOOT-004?","expected_protected_terms":["EG-3000","EG-BOOT-004"],"expected_semantic_terms":["troubleshooting","recovery","verification"],"forbidden_terms":["EG-FAKE-999"]}
+{"case_id":"qr-zh-procedure","query":"EG-3000 出现 EG-BOOT-004 后如何恢复？","expected_protected_terms":["EG-3000","EG-BOOT-004"],"expected_semantic_terms":["排查步骤","恢复步骤","验证方法"],"forbidden_terms":["已经修复"]}
+{"case_id":"qr-security-version","query":"What does CVE-2025-12345 affect in firmware v2.4.1?","expected_protected_terms":["CVE-2025-12345","v2.4.1"],"expected_semantic_terms":["firmware"],"forbidden_terms":["v2.5.0"]}
+{"case_id":"qr-exact-code","query":"EG-BOOT-004","expected_protected_terms":["EG-BOOT-004"],"expected_semantic_terms":["EG-BOOT-004"],"forbidden_terms":["EG-BOOT-005"]}
+{"case_id":"qr-zh-rollback","query":"怎么回滚 firmware upgrade？","expected_protected_terms":[],"expected_semantic_terms":["回滚","排查步骤","验证方法"],"forbidden_terms":["已成功"]}

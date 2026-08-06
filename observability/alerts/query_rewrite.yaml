@@ -1,0 +1,24 @@
+groups:
+  - name: omnisupport-query-rewrite
+    rules:
+      - alert: QueryRewriteFallbackRatioHigh
+        expr: query_rewrite_fallback_ratio_15m > 0.05
+        for: 10m
+        labels: {severity: P2}
+        annotations:
+          summary: "Query Rewrite fallback ratio is above the production SLO"
+          runbook: "runbooks/query-rewrite-production.md#告警处置"
+      - alert: QueryRewriteCircuitOpen
+        expr: query_rewrite_circuit_open > 0
+        for: 2m
+        labels: {severity: P2}
+        annotations:
+          summary: "Query Rewrite provider circuit is open"
+          runbook: "runbooks/query-rewrite-production.md#告警处置"
+      - alert: QueryRewriteLatencyHigh
+        expr: query_rewrite_latency_p95_ms_15m > 3000
+        for: 10m
+        labels: {severity: P3}
+        annotations:
+          summary: "Query Rewrite p95 latency is above the 3000ms local Ollama SLO"
+          runbook: "runbooks/query-rewrite-production.md#告警处置"

@@ -1,7 +1,8 @@
 """应用配置 — 通过环境变量注入，支持 .env 文件"""
 
-from typing import List
+from typing import List, Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +33,7 @@ class Settings(BaseSettings):
     moonshot_api_key: str = ""
     llm_model: str = ""
     llm_max_tokens: int = 2048
+    llm_context_tokens: int = Field(default=8192, ge=2048, le=131072)
     llm_temperature: float = 0.0
     llm_timeout_seconds: float = 90.0
     llm_max_retries: int = 1
@@ -43,6 +45,28 @@ class Settings(BaseSettings):
     graph_classifier_threshold: float = 0.70
     graph_max_hops: int = 3
     graph_default_visibility_scope: str = "internal"
+
+    # ── Query Rewrite ────────────────────────────────────────────────────────
+    # auto: configured LLM with deterministic validation/fallback; otherwise
+    # deterministic. `disabled` is the emergency rollback switch.
+    query_rewrite_enabled: bool = True
+    query_rewrite_strategy: Literal["auto", "llm", "deterministic", "disabled"] = "auto"
+    query_rewrite_provider: str = ""
+    query_rewrite_model: str = ""
+    query_rewrite_base_url: str = ""
+    query_rewrite_prompt_release_id: str = "query-rewrite-v1"
+    query_rewrite_timeout_seconds: float = Field(default=6.0, gt=0.0, le=30.0)
+    query_rewrite_max_attempts: int = Field(default=2, ge=1, le=3)
+    query_rewrite_max_output_chars: int = Field(default=1024, ge=128, le=4096)
+    query_rewrite_max_tokens: int = Field(default=256, ge=64, le=1024)
+    query_rewrite_context_tokens: int = Field(default=2048, ge=1024, le=16384)
+    query_rewrite_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
+    query_rewrite_hyde_enabled: bool = False
+    query_rewrite_redact_pii: bool = True
+    query_rewrite_cache_ttl_seconds: float = Field(default=300.0, ge=0.0, le=86400.0)
+    query_rewrite_cache_max_entries: int = Field(default=2048, ge=0, le=100000)
+    query_rewrite_circuit_failure_threshold: int = Field(default=5, ge=1, le=100)
+    query_rewrite_circuit_recovery_seconds: float = Field(default=30.0, gt=0.0, le=3600.0)
 
     # ── 版本与发布 ────────────────────────────────────────────────────────────
     release_id: str = "dev-local"

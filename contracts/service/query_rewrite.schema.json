@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omnisupport.local/contracts/service/query_rewrite.schema.json",
+  "title": "Privacy-safe Query Rewrite Debug Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "provider",
+    "model",
+    "prompt_release_id",
+    "rewrite_reasons",
+    "fallback_reason",
+    "original_query_sha256",
+    "semantic_query_sha256",
+    "original_query_length",
+    "semantic_query_length",
+    "lexical_term_count",
+    "hyde_used",
+    "attempts",
+    "safety_repairs",
+    "cache_hit",
+    "coalesced",
+    "circuit_state",
+    "latency_ms"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["disabled", "deterministic", "llm", "fallback"]
+    },
+    "provider": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "prompt_release_id": { "type": "string", "minLength": 1 },
+    "rewrite_reasons": {
+      "type": "array",
+      "items": { "type": "string" },
+      "maxItems": 10
+    },
+    "fallback_reason": { "type": ["string", "null"] },
+    "original_query_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "semantic_query_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "original_query_length": { "type": "integer", "minimum": 0, "maximum": 2048 },
+    "semantic_query_length": { "type": "integer", "minimum": 0, "maximum": 4096 },
+    "lexical_term_count": { "type": "integer", "minimum": 0 },
+    "hyde_used": { "type": "boolean" },
+    "attempts": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "safety_repairs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["removed_invented_protected_terms"]
+      },
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "cache_hit": { "type": "boolean" },
+    "coalesced": { "type": "boolean" },
+    "circuit_state": { "type": "string", "enum": ["closed", "open", "half_open"] },
+    "latency_ms": { "type": "number", "minimum": 0 }
+  }
+}

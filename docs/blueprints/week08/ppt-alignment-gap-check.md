@@ -17,9 +17,9 @@ RAG service factory:
   ids, prompt release id, trace id, debug scores, and audit log;
 - file-backed prompt templates and smoke eval.
 
-The deck also covers production extensions. Some are intentionally represented
-as classroom-safe scaffolds or deferred follow-up work, not as fully production
-integrated services.
+The deck also covers production extensions. Query Rewrite has since been
+promoted into the online runtime with governed LLM output and deterministic
+fallback. Other items below remain classroom-safe scaffolds or deferred work.
 
 ## Slide Concept To Code Map
 
@@ -28,7 +28,7 @@ integrated services.
 | `pipelines/retrieve/hybrid.py` | `pipelines/retrieve/hybrid.py` wrapping `services/rag_api/app/retrieval.py` | Path-compatible alias; runtime logic stays in one service module |
 | pgvector + BM25/FTS + RRF | `services/rag_api/app/retrieval.py` | Implemented with pgvector, PostgreSQL FTS, RRF `k=60` |
 | Rerank | `pipelines/retrieve/rerank.py`, `services/rag_api/app/retrieval.py` | Optional CrossEncoder; unavailable dependency falls back to RRF |
-| Query Rewrite / HyDE | `pipelines/query/rewriter.py` | Deterministic classroom planner; LLM rewrite is deferred |
+| Query Rewrite / HyDE | `pipelines/query/rewriter.py`, `services/rag_api/app/query_rewrite.py` | Production runtime integrated; strict LLM admission, timeout/retry/circuit breaker/cache, privacy-safe trace/audit, deterministic fallback; HyDE opt-in |
 | Adaptive RAG router | `pipelines/query/router.py` | Deterministic route plan; LangGraph runtime is deferred |
 | Multi-hop retrieval | `pipelines/query/multi_hop.py` | Plan object only; runtime loop deferred |
 | Structured RAG response | `contracts/service/*.schema.json`, `services/rag_api/app/models/rag_models.py` | Implemented |
@@ -48,9 +48,9 @@ Use this language in class:
 - "Week08 has the production RAG minimum viable control plane."
 - "Hybrid retrieval, RRF, structured response, citations, release ids, and audit
   are runnable."
-- "Query Rewrite, HyDE, Adaptive RAG, Prompt Cache, LLM-as-Judge, and Canary are
-  production extensions. We provide deterministic scaffolds or schemas now, and
-  expand them in later weeks."
+- "Query Rewrite is wired into the production runtime with deterministic safety
+  and release controls. HyDE stays off by default; Adaptive RAG, provider prompt
+  cache and remaining extensions retain their documented boundaries."
 
 Avoid saying:
 
@@ -67,11 +67,11 @@ Avoid saying:
 
 1. Add provider-specific Cohere rerank adapter behind the existing rerank
    interface.
-2. Add optional LLM query rewrite / HyDE behind `pipelines/query/rewriter.py`.
-3. Add Anthropic/OpenAI structured-output and citation adapter while preserving
+2. Add Anthropic/OpenAI structured-output and citation adapter while preserving
    retrieval-metadata citation as the source of truth.
-4. Add prompt cache metrics when an API key and provider cache controls are
+3. Add provider prompt-cache metrics when an API key and provider cache controls are
    configured.
-5. Add canary routing and rollback executor after release manifest governance is
+4. Add a platform-level weighted canary executor; Query Rewrite already exposes
+   release ids, quality gates and immediate deterministic/disabled rollback.
+5. Add rollback executor after release manifest governance is
    introduced.
-
