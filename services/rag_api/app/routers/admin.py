@@ -15,4 +15,5 @@ async def get_release_info() -> ReleaseInfoResponse:
         data_release_id=settings.data_release_id,
         index_release_id=settings.index_release_id,
         prompt_release_id=settings.prompt_release_id,
+        query_rewrite_prompt_release_id=settings.query_rewrite_prompt_release_id,
     )

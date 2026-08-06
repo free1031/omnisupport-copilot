@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 
@@ -17,6 +18,16 @@ from app.context_pruning import prune_contexts
 from app.llm import complete, resolve_llm_runtime
 
 logger = logging.getLogger(__name__)
+
+GROUNDED_ANSWER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        # Keep provider grammar portable; enforce length after deserialization.
+        "answer": {"type": "string", "minLength": 1},
+    },
+    "required": ["answer"],
+    "additionalProperties": False,
+}
 
 
 # ── Prompt 模板 ───────────────────────────────────────────────────────────────
@@ -251,8 +262,24 @@ async def generate_grounded_answer(
             graph_context=graph_context,
             retrieval_mode=retrieval_mode,
         )
-        response = await complete(system_prompt=system_prompt, user_prompt=user_prompt)
-        return response.text, confidence, None, {
+        structured = runtime.provider in {"ollama", "openai"}
+        response = await complete(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            runtime=runtime,
+            context_tokens=settings.llm_context_tokens,
+            json_mode=structured,
+            json_schema=GROUNDED_ANSWER_SCHEMA if structured else None,
+        )
+        answer = response.text
+        if structured:
+            payload = json.loads(response.text)
+            if set(payload) != {"answer"} or not isinstance(payload["answer"], str):
+                raise ValueError("invalid_grounded_answer_contract")
+            answer = payload["answer"].strip()
+            if not answer or len(answer) > 3000:
+                raise ValueError("invalid_grounded_answer_length")
+        return answer, confidence, None, {
             "mode": "llm",
             "provider": response.provider,
             "model": response.model,

@@ -37,6 +37,11 @@ def test_week8_rag_audit_log_writes_release_and_score_fields():
             data_release_id="data-week08-dev",
             index_release_id="index-week08-dev",
             prompt_release_id="prompt-week08-v1",
+            query_rewrite={
+                "mode": "llm",
+                "original_query_sha256": "sha256:abc",
+                "semantic_query_sha256": "sha256:def",
+            },
             latency_ms=12.5,
         )
     )
@@ -52,3 +57,5 @@ def test_week8_rag_audit_log_writes_release_and_score_fields():
     assert params[8] == "Use the grounded recovery runbook; token=[SECRET]"
     assert json.loads(params[5])["product_line"] == "edge-gateway"
     assert json.loads(params[7])[0]["rerank_score"] == 0.91
+    assert json.loads(params[15])["mode"] == "llm"
+    assert "owner@example.com" not in params[15]

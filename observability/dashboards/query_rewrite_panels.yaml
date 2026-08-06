@@ -1,0 +1,30 @@
+version: query-rewrite-v1
+source: phoenix_spans
+project: omnisupport-copilot
+root_span: rag.query.rewrite
+panels:
+  - name: query_rewrite_overview
+    metrics: [qps, mode_distribution, fallback_ratio, latency_p50_ms, latency_p95_ms]
+    attributes:
+      - omni.query_rewrite.mode
+      - omni.query_rewrite.provider
+      - omni.query_rewrite.model
+      - omni.query_rewrite.prompt_release_id
+      - omni.query_rewrite.latency_ms
+  - name: query_rewrite_resilience
+    metrics: [fallbacks_by_reason, circuit_state, retry_distribution, cache_hit_ratio, coalesced_ratio]
+    attributes:
+      - omni.query_rewrite.fallback_reason
+      - omni.query_rewrite.circuit_state
+      - omni.query_rewrite.attempts
+      - omni.query_rewrite.cache_hit
+      - omni.query_rewrite.coalesced
+  - name: query_rewrite_safety
+    metrics: [semantic_length_distribution, lexical_term_count, hyde_usage, safety_repair_count]
+    attributes:
+      - omni.query_rewrite.semantic_sha256
+      - omni.query_rewrite.semantic_length
+      - omni.query_rewrite.lexical_term_count
+      - omni.query_rewrite.hyde_used
+      - omni.query_rewrite.safety_repair_count
+    privacy: hashes_and_counts_only

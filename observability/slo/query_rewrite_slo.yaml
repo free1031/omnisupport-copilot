@@ -1,0 +1,21 @@
+version: query-rewrite-v1
+window_minutes: 60
+objectives:
+  online_success_ratio:
+    target: 0.99
+    definition: mode in [llm, deterministic] or governed fallback returned
+  latency_p95_ms:
+    target: 3000
+    profile: local_ollama
+  fallback_ratio:
+    target_max: 0.05
+  protected_term_retention_rate:
+    target: 1.0
+    source: offline_release_gate
+  invented_protected_term_rate:
+    target: 0.0
+    source: offline_release_gate
+redlines:
+  - invented_protected_term_rate_above_zero
+  - raw_query_content_in_trace_or_query_rewrite_audit
+  - rewrite_failure_breaks_rag_request

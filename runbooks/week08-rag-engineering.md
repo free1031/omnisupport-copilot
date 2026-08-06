@@ -10,7 +10,9 @@ This runbook validates the Student Core path:
 2. Index dry-run and index build with an explicit `index_release_id`.
 3. Hybrid retrieval with pgvector, PostgreSQL FTS, RRF, metadata filters, and optional rerank.
 4. Structured RAG API response with citations, release ids, prompt release id, and trace id.
-5. Minimal audit log and smoke eval.
+5. Governed Query Rewrite with deterministic fallback, strict LLM admission,
+   privacy-safe trace/audit and an offline release gate.
+6. Minimal RAG audit log and smoke eval.
 
 Week8 does not implement Week10 actions, Week11 full eval, Week12 tracing, Week13 GraphRAG, or Week14 release governance.
 
@@ -25,8 +27,8 @@ path:
   `knowledge_section`, and `evidence_anchor`.
 - `pipelines/indexing/` builds a versioned index and binds
   `index_release_id`.
-- `pipelines/query/` explains Query Rewrite, HyDE, and Adaptive RAG as
-  deterministic classroom scaffolds.
+- `pipelines/query/` provides the deterministic Query Rewrite safety layer;
+  `services/rag_api/app/query_rewrite.py` owns the production online runtime.
 - `services/rag_api/app/retrieval.py` owns the runnable pgvector + FTS + RRF +
   optional rerank path.
 - `services/rag_api/app/context_pruning.py`, `services/rag_api/app/prompts/`,
@@ -44,18 +46,18 @@ core maps them to these repository paths:
   in `services/rag_api/app/retrieval.py`.
 - `pipelines/retrieve/rerank.py`: deck-compatible rerank wrapper with the same
   fallback semantics as the API service.
-- `pipelines/query/rewriter.py`: deterministic Query Rewrite / HyDE planning.
+- `pipelines/query/rewriter.py`: deterministic Query Rewrite / HyDE safety layer;
+  the online LLM path is in `services/rag_api/app/query_rewrite.py`.
 - `pipelines/query/router.py`: deterministic Adaptive RAG route planning.
 - `services/rag_api/app/context_pruning.py`: top-k + token-budget context
   pruning.
 - `services/rag_api/app/prompts/`: file-backed Prompt as Code templates.
 
 See `docs/blueprints/week08/ppt-alignment-gap-check.md` for the full
-"implemented / classroom fallback / deferred" map. In short: Hybrid retrieval,
-RRF, structured response, evidence-derived citations, prompt release ids, audit,
-and smoke eval are runnable. Cohere rerank, Anthropic native Citations API,
-Prompt Cache, LLM-as-Judge, bad-case replay, canary routing, and rollback
-execution are production extensions, not Week08 Student Core.
+"implemented / fallback / deferred" map. Hybrid retrieval, Query Rewrite, RRF,
+structured response, evidence-derived citations, prompt release ids, audit and
+smoke eval are runnable. Cohere rerank, Anthropic native Citations API, provider
+Prompt Cache, and remaining platform extensions retain their documented scope.
 
 ## Start local stack
 
