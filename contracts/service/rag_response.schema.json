@@ -37,6 +37,12 @@
       "type": "string",
       "enum": ["hybrid", "graph_local", "graph_global", "graph_multihop", "graph_drift"]
     },
+    "generation_mode": {
+      "type": "string",
+      "enum": ["llm", "deterministic_fallback", "not_invoked"]
+    },
+    "generation_provider": { "type": "string" },
+    "generation_model": { "type": "string" },
     "trace_id": { "type": "string", "minLength": 1 },
     "retrieved_contexts": {
       "type": "array",
@@ -61,6 +67,12 @@
     "graph_debug": {
       "type": ["object", "null"],
       "additionalProperties": true
+    },
+    "query_rewrite_debug": {
+      "anyOf": [
+        { "$ref": "query_rewrite.schema.json" },
+        { "type": "null" }
+      ]
     }
   }
 }

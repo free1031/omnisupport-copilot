@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Request
 from app.config import settings
 from app.internal_auth import InternalPrincipal, require_internal_request
 from app.models.rag_models import EvidenceAnchor, QueryRequest, QueryResponse, RetrievedChunk
+from app.query_rewrite import query_rewrite_service
 from observability.runtime import current_trace_id, hash_text, traced_span
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ async def close_pool() -> None:
 async def query_knowledge(
     request: QueryRequest,
     http_request: Request,
-    _principal: InternalPrincipal = Depends(require_internal_request),
+    principal: InternalPrincipal = Depends(require_internal_request),
 ) -> QueryResponse:
     request_id = getattr(http_request.state, "request_id", str(uuid.uuid4()))
     trace_id = current_trace_id() or request_id
@@ -79,8 +80,16 @@ async def query_knowledge(
 
         # ── 检索 ─────────────────────────────────────────────────────────────
         with traced_span("rag.retrieve.hybrid", kind="RETRIEVER") as retrieval_span:
-            raw_chunks = await _do_retrieval(request, trace_id)
+            raw_chunks, rewrite = await _do_retrieval(
+                request,
+                trace_id,
+                tenant_id=principal.tenant_id or "course-legacy",
+            )
             retrieval_span.set_attribute("omni.retrieval.result_count", len(raw_chunks))
+            retrieval_span.set_attribute("omni.query_rewrite.mode", rewrite.mode)
+            retrieval_span.set_attribute(
+                "omni.query_rewrite.fallback_reason", rewrite.fallback_reason or ""
+            )
 
         # ── 生成 ─────────────────────────────────────────────────────────────
         with traced_span(
@@ -117,13 +126,33 @@ async def query_knowledge(
         )
 
 
-async def _do_retrieval(request: QueryRequest, trace_id: str):
+async def _do_retrieval(request: QueryRequest, trace_id: str, *, tenant_id: str):
     """执行混合检索，DB 不可用时降级返回空列表"""
+    with traced_span(
+        "rag.query.rewrite",
+        kind="CHAIN",
+        attributes={
+            "omni.query_rewrite.strategy": settings.query_rewrite_strategy,
+            "omni.query_rewrite.prompt_release_id": settings.query_rewrite_prompt_release_id,
+        },
+    ) as rewrite_span:
+        rewrite = await query_rewrite_service.rewrite(request.query, tenant_id=tenant_id)
+        rewrite_span.set_attribute("omni.query_rewrite.mode", rewrite.mode)
+        rewrite_span.set_attribute("omni.query_rewrite.provider", rewrite.provider)
+        rewrite_span.set_attribute("omni.query_rewrite.model", rewrite.model)
+        rewrite_span.set_attribute(
+            "omni.query_rewrite.fallback_reason", rewrite.fallback_reason or ""
+        )
+        rewrite_span.set_attribute("omni.query_rewrite.latency_ms", rewrite.latency_ms)
+        rewrite_span.set_attribute(
+            "omni.query_rewrite.safety_repair_count",
+            len(rewrite.safety_repairs),
+        )
     try:
         pool = await _get_pool()
         async with pool.acquire() as conn:
             from app.retrieval import hybrid_retrieve
-            return await hybrid_retrieve(
+            chunks = await hybrid_retrieve(
                 conn=conn,
                 query=request.query,
                 top_k=request.top_k,
@@ -131,10 +160,14 @@ async def _do_retrieval(request: QueryRequest, trace_id: str):
                 index_release_id=settings.index_release_id,
                 rerank=settings.rerank_enabled,
                 min_score=0.0,   # 过滤在响应层做
+                semantic_query=rewrite.vector_query,
+                lexical_query=rewrite.lexical_query,
+                rerank_query=request.query,
             )
+            return chunks, rewrite
     except Exception as e:
         logger.warning(f"[{trace_id}] Retrieval failed, returning empty: {e}")
-        return []
+        return [], rewrite
 
 
 def _build_response_chunks(raw_chunks) -> list[RetrievedChunk]:

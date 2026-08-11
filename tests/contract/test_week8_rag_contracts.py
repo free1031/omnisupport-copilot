@@ -20,6 +20,7 @@ def validator(schema_name: str) -> jsonschema.Draft202012Validator:
     referenced = [
         load_json(SERVICE_CONTRACTS / "citation.schema.json"),
         load_json(SERVICE_CONTRACTS / "retrieval_debug.schema.json"),
+        load_json(SERVICE_CONTRACTS / "query_rewrite.schema.json"),
     ]
     registry = Registry().with_resources(
         (document["$id"], Resource.from_contents(document)) for document in referenced
@@ -61,3 +62,30 @@ def test_no_answer_has_abstain_reason_and_no_evidence():
     assert payload["abstain_reason"]
     assert payload["citations"] == []
     assert payload["evidence_ids"] == []
+
+
+def test_rag_response_accepts_privacy_safe_query_rewrite_debug():
+    payload = load_json(FIXTURES / "rag_response.valid.json")
+    payload["query_rewrite_debug"] = {
+        "mode": "llm",
+        "provider": "ollama",
+        "model": "qwen3:4b",
+        "prompt_release_id": "query-rewrite-v1",
+        "rewrite_reasons": ["intent_clarified"],
+        "fallback_reason": None,
+        "original_query_sha256": "sha256:" + "a" * 64,
+        "semantic_query_sha256": "sha256:" + "b" * 64,
+        "original_query_length": 40,
+        "semantic_query_length": 55,
+        "lexical_term_count": 2,
+        "hyde_used": False,
+        "attempts": 1,
+        "safety_repairs": [],
+        "cache_hit": False,
+        "coalesced": False,
+        "circuit_state": "closed",
+        "latency_ms": 12.4,
+    }
+
+    validator("rag_response.schema.json").validate(payload)
+    assert "semantic_query" not in payload["query_rewrite_debug"]

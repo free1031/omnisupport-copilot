@@ -1,11 +1,13 @@
 # ruff: noqa: E402 - RAG service path is installed before app imports
 
+import asyncio
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "services" / "rag_api"))
 
+from app import retrieval
 from app.retrieval import RetrievalResult, _build_fts_query, reciprocal_rank_fusion
 
 
@@ -48,3 +50,34 @@ def test_fts_query_preserves_business_terms_and_removes_question_noise():
     query = _build_fts_query("What must happen before rotating a Workspace webhook signing secret?")
 
     assert query == "happen OR rotating OR workspace OR webhook OR signing OR secret"
+
+
+def test_hybrid_retrieval_separates_vector_lexical_and_rerank_queries(monkeypatch):
+    observed = {}
+
+    async def fake_vector(_conn, query, _top_k, **_kwargs):
+        observed["vector"] = query
+        return []
+
+    async def fake_fts(_conn, query, _top_k, **_kwargs):
+        observed["lexical"] = query
+        return []
+
+    monkeypatch.setattr(retrieval, "vector_search", fake_vector)
+    monkeypatch.setattr(retrieval, "fts_search", fake_fts)
+
+    asyncio.run(
+        retrieval.hybrid_retrieve(
+            object(),
+            "original question",
+            rerank=False,
+            semantic_query="semantic expansion",
+            lexical_query="original EG-BOOT-004",
+            rerank_query="original question",
+        )
+    )
+
+    assert observed == {
+        "vector": "semantic expansion",
+        "lexical": "original EG-BOOT-004",
+    }

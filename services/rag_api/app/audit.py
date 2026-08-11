@@ -38,6 +38,7 @@ async def write_rag_audit_log(
     data_release_id: str | None,
     index_release_id: str,
     prompt_release_id: str,
+    query_rewrite: dict,
     latency_ms: float,
 ) -> bool:
     try:
@@ -47,10 +48,10 @@ async def write_rag_audit_log(
                 request_id, trace_id, question, tenant_id, actor_role, filters,
                 retrieved_evidence_ids, scores, answer, confidence,
                 abstain_reason, release_id, data_release_id, index_release_id,
-                prompt_release_id, latency_ms
+                prompt_release_id, query_rewrite, latency_ms
             )
             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::jsonb, $9, $10,
-                    $11, $12, $13, $14, $15, $16)
+                    $11, $12, $13, $14, $15, $16::jsonb, $17)
             """,
             request_id,
             trace_id,
@@ -67,6 +68,7 @@ async def write_rag_audit_log(
             data_release_id,
             index_release_id,
             prompt_release_id,
+            json.dumps(query_rewrite, ensure_ascii=False),
             latency_ms,
         )
         return True

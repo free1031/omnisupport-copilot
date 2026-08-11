@@ -92,6 +92,7 @@ class ReleaseInfoResponse(BaseModel):
     data_release_id: str
     index_release_id: str
     prompt_release_id: str
+    query_rewrite_prompt_release_id: str
 
 
 # ── Week8 RAG contract models ────────────────────────────────────────────────
@@ -173,6 +174,29 @@ class GraphRetrievalDebug(BaseModel):
     fallback_reason: Optional[str] = None
 
 
+class QueryRewriteDebug(BaseModel):
+    """Privacy-safe rewrite diagnostics; raw query text is deliberately absent."""
+
+    mode: Literal["disabled", "deterministic", "llm", "fallback"]
+    provider: str
+    model: str
+    prompt_release_id: str
+    rewrite_reasons: List[str] = Field(default_factory=list)
+    fallback_reason: Optional[str] = None
+    original_query_sha256: str
+    semantic_query_sha256: str
+    original_query_length: int = Field(ge=0)
+    semantic_query_length: int = Field(ge=0)
+    lexical_term_count: int = Field(ge=0)
+    hyde_used: bool
+    attempts: int = Field(ge=0)
+    safety_repairs: List[str] = Field(default_factory=list)
+    cache_hit: bool
+    coalesced: bool
+    circuit_state: str
+    latency_ms: float = Field(ge=0.0)
+
+
 class RagAnswerResponse(BaseModel):
     answer: str
     citations: List[Citation]
@@ -192,3 +216,4 @@ class RagAnswerResponse(BaseModel):
     retrieved_contexts: Optional[List[RetrievalContext]] = None
     retrieval_debug: Optional[RetrievalDebugPayload] = None
     graph_debug: Optional[GraphRetrievalDebug] = None
+    query_rewrite_debug: Optional[QueryRewriteDebug] = None

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omnisupport.local/contracts/evals/query_rewrite_eval_report.schema.json",
+  "title": "Query Rewrite Evaluation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "strategy", "prompt_release_id", "metrics", "cases", "gate"],
+  "properties": {
+    "schema_version": { "const": "query_rewrite_eval_v1" },
+    "strategy": { "enum": ["auto", "llm", "deterministic", "disabled"] },
+    "prompt_release_id": { "type": "string", "minLength": 1 },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_count", "case_pass_rate", "protected_term_retention_rate",
+        "invented_protected_term_rate", "fallback_rate", "latency_p95_ms"
+      ],
+      "properties": {
+        "case_count": { "type": "integer", "minimum": 1 },
+        "case_pass_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "protected_term_retention_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "invented_protected_term_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fallback_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "latency_p95_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id", "query_sha256", "mode", "passed", "protected_terms_retained",
+          "invented_protected_terms", "missing_semantic_terms", "forbidden_terms_found",
+          "fallback_reason", "latency_ms"
+        ],
+        "properties": {
+          "case_id": { "type": "string", "minLength": 1 },
+          "query_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "mode": { "enum": ["disabled", "deterministic", "llm", "fallback"] },
+          "passed": { "type": "boolean" },
+          "protected_terms_retained": { "type": "boolean" },
+          "invented_protected_terms": { "type": "array", "items": { "type": "string" } },
+          "missing_semantic_terms": { "type": "array", "items": { "type": "string" } },
+          "forbidden_terms_found": { "type": "array", "items": { "type": "string" } },
+          "fallback_reason": { "type": ["string", "null"] },
+          "latency_ms": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "blocking_reasons"],
+      "properties": {
+        "status": { "enum": ["pass", "fail"] },
+        "blocking_reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

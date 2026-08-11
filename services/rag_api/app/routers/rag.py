@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Request
 
@@ -15,12 +16,14 @@ from app.llm import resolve_llm_runtime
 from app.models.rag_models import (
     Citation,
     GraphRetrievalDebug,
+    QueryRewriteDebug,
     RagAnswerRequest,
     RagAnswerResponse,
     RetrievalContext,
     RetrievalDebugItem,
     RetrievalDebugPayload,
 )
+from app.query_rewrite import query_rewrite_service
 from app.routers.query import _get_pool
 from observability.runtime import current_trace_id, hash_text, safe_preview, traced_span
 from services.graph.classifier import classify_query
@@ -51,13 +54,6 @@ async def rag_answer(
     requested_mode = payload.retrieval_mode
     tenant_id = principal.tenant_id or payload.tenant_id or "course-legacy"
     actor_role = principal.actor_role or payload.actor_role
-    route_decision = (
-        classify_query(payload.question, threshold=settings.graph_classifier_threshold)
-        if requested_mode == "auto"
-        else RouteDecision(requested_mode, 1.0, ("explicit_request_mode",))
-    )
-    selected_mode = route_decision.mode
-    effective_mode = selected_mode
     graph_result = None
     graph_fallback_reason = None
     filters = {
@@ -72,6 +68,7 @@ async def rag_answer(
         "retrieval_mode": requested_mode,
         "graph_visibility_scope": graph_visibility_scope,
         "tenant_id": tenant_id,
+        "query_rewrite_prompt_release_id": settings.query_rewrite_prompt_release_id,
     }
 
     root_attributes = {
@@ -93,6 +90,68 @@ async def rag_answer(
 
     with traced_span("rag.query", kind="CHAIN", attributes=root_attributes) as root_span:
         trace_id = current_trace_id() or trace_id
+        with traced_span(
+            "rag.query.rewrite",
+            kind="CHAIN",
+            attributes={
+                "omni.query_rewrite.strategy": settings.query_rewrite_strategy,
+                "omni.query_rewrite.prompt_release_id": (
+                    settings.query_rewrite_prompt_release_id
+                ),
+            },
+        ) as rewrite_span:
+            rewrite = await query_rewrite_service.rewrite(
+                payload.question,
+                tenant_id=tenant_id,
+            )
+            rewrite_metadata = rewrite.audit_metadata(payload.question)
+            rewrite_span.set_attribute("omni.query_rewrite.mode", rewrite.mode)
+            rewrite_span.set_attribute("omni.query_rewrite.provider", rewrite.provider)
+            rewrite_span.set_attribute("omni.query_rewrite.model", rewrite.model)
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.reasons", list(rewrite.rewrite_reasons)
+            )
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.fallback_reason", rewrite.fallback_reason or ""
+            )
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.semantic_sha256", hash_text(rewrite.semantic_query)
+            )
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.semantic_length", len(rewrite.semantic_query)
+            )
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.lexical_term_count", len(rewrite.lexical_terms)
+            )
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.hyde_used", bool(rewrite.hyde_document)
+            )
+            rewrite_span.set_attribute("omni.query_rewrite.attempts", rewrite.attempts)
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.safety_repair_count",
+                len(rewrite.safety_repairs),
+            )
+            rewrite_span.set_attribute("omni.query_rewrite.cache_hit", rewrite.cache_hit)
+            rewrite_span.set_attribute("omni.query_rewrite.coalesced", rewrite.coalesced)
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.circuit_state", rewrite.circuit_state
+            )
+            rewrite_span.set_attribute(
+                "omni.query_rewrite.latency_ms", rewrite.latency_ms
+            )
+
+        route_decision = (
+            classify_query(
+                # Routing follows the user's intent, not retrieval-only terms
+                # added by query rewrite (for example "root cause").
+                payload.question,
+                threshold=settings.graph_classifier_threshold,
+            )
+            if requested_mode == "auto"
+            else RouteDecision(requested_mode, 1.0, ("explicit_request_mode",))
+        )
+        selected_mode = route_decision.mode
+        effective_mode = selected_mode
         llm_runtime = resolve_llm_runtime()
         with traced_span(
             "rag.intent.route",
@@ -105,7 +164,7 @@ async def rag_answer(
         ):
             pass
 
-        raw_chunks = []
+        raw_chunks: list[Any] = []
         pool = None
         with traced_span(
             "rag.retrieve.route",
@@ -135,7 +194,7 @@ async def rag_answer(
                                 graph_result = await GraphRetriever(
                                     AsyncPostgresGraphStore(conn)
                                 ).retrieve(
-                                    payload.question,
+                                    rewrite.semantic_query,
                                     mode=selected_mode,
                                     graph_release_id=graph_release_id,
                                     product_line=payload.product_line,
@@ -175,6 +234,9 @@ async def rag_answer(
                             raw_chunks = await hybrid_retrieve(
                                 conn=conn,
                                 query=payload.question,
+                                semantic_query=rewrite.vector_query,
+                                lexical_query=rewrite.lexical_query,
+                                rerank_query=payload.question,
                                 top_k=payload.top_k,
                                 product_line=payload.product_line,
                                 index_release_id=index_release_id,
@@ -269,6 +331,11 @@ async def rag_answer(
             if payload.include_debug
             else None
         )
+        query_rewrite_debug = (
+            QueryRewriteDebug.model_validate(rewrite_metadata)
+            if payload.include_debug
+            else None
+        )
         graph_debug = None
         if payload.include_debug and requested_mode != "hybrid":
             graph_debug = GraphRetrievalDebug(
@@ -309,6 +376,7 @@ async def rag_answer(
                             data_release_id=data_release_id,
                             index_release_id=index_release_id,
                             prompt_release_id=prompt_release_id,
+                            query_rewrite=rewrite_metadata,
                             latency_ms=timer.elapsed_ms,
                         )
                 except Exception as exc:
@@ -319,6 +387,10 @@ async def rag_answer(
         root_span.set_attribute("omni.answer.confidence", confidence)
         root_span.set_attribute("omni.answer.abstain_reason", abstain_reason or "")
         root_span.set_attribute("omni.audit.persisted", audit_persisted)
+        root_span.set_attribute("omni.query_rewrite.mode", rewrite.mode)
+        root_span.set_attribute(
+            "omni.query_rewrite.fallback_reason", rewrite.fallback_reason or ""
+        )
         root_span.set_attribute("omni.latency_ms", timer.elapsed_ms)
 
         return RagAnswerResponse(
@@ -333,13 +405,17 @@ async def rag_answer(
             prompt_release_id=prompt_release_id,
             graph_release_id=graph_release_id if requested_mode != "hybrid" else None,
             retrieval_mode=effective_mode,
-            generation_mode=generation["mode"],
-            generation_provider=generation["provider"],
-            generation_model=generation["model"],
+            generation_mode=cast(
+                Literal["llm", "deterministic_fallback", "not_invoked"],
+                generation["mode"],
+            ),
+            generation_provider=str(generation["provider"]),
+            generation_model=str(generation["model"]),
             trace_id=trace_id,
             retrieved_contexts=retrieved_contexts,
             retrieval_debug=debug,
             graph_debug=graph_debug,
+            query_rewrite_debug=query_rewrite_debug,
         )
 
 
@@ -367,7 +443,19 @@ def _debug_payload(chunks, filters: dict, *, mode: str) -> RetrievalDebugPayload
         "hybrid_rrf_rerank" if has_rerank else "hybrid_rrf"
     )
     return RetrievalDebugPayload(
-        mode=debug_mode,
+        mode=cast(
+            Literal[
+                "vector",
+                "fts",
+                "hybrid_rrf",
+                "hybrid_rrf_rerank",
+                "graph_local",
+                "graph_global",
+                "graph_multihop",
+                "graph_drift",
+            ],
+            debug_mode,
+        ),
         rrf_k=60,
         rerank_enabled=settings.rerank_enabled,
         rerank_fallback=settings.rerank_enabled and not has_rerank,
